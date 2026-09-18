@@ -10,6 +10,8 @@ import { drawBeadLayout, hitTestBeadLayout, projectBeadLayout } from './bead-geo
 import { buildAmigurumi, buildRadialCrochetChart, CROCHET_STITCHES, validateRoundSequence } from '../src/crochet/round-engine.mjs';
 import { drawCrochetTechnique } from './crochet-renderer.mjs';
 import { toCrochetParadeDsl } from '../src/crochet/crochetparade-adapter.mjs';
+import { CROCHET_SYMBOLS, addCrochetEdge, addCrochetNode, chartToRoundText, createCrochetChart, generateCrochetTemplate, moveCrochetNode, nearestGuidePoint, parseRoundText, removeCrochetNode, summarizeCrochetChart, updateCrochetNode } from '../src/crochet/chart-model.mjs';
+import { drawCrochetChart, hitTestCrochetChart, projectCrochetChart, screenToCrochetModel } from './crochet-chart-renderer.mjs';
 
 const STORAGE_KEY='openpattern.current.v1';
 const VIEW_KEY='openpattern.view.v1';
@@ -29,6 +31,7 @@ const brushSizeInput=$('#brushSize'),eraserSizeInput=$('#eraserSize'),brushSizeV
 const conversionPanel=$('#imageConversionPanel');
 const techniqueNameEl=$('#techniqueName'),techniqueSourceModeEl=$('#techniqueSourceMode'),techniqueSourceHelpEl=$('#techniqueSourceHelp');
 const rightPanel=document.querySelector('.right-panel');
+const crochetStudioPanel=$('#crochetStudioPanel'),crochetSymbolPalette=$('#crochetSymbolPalette'),crochetSelectionInfo=$('#crochetSelectionInfo');
 
 let pattern=loadPattern()??createPattern({techniqueId:'tapestry-crochet',width:32,height:24});
 let sourceBitmap=null,sourceName='',activeColor=Math.min(1,pattern.palette.length-1),activeTool='pencil',brushSize=1,eraserSize=1;
@@ -36,6 +39,7 @@ let spaceDown=false,gesture=null,lastPaintedCell=null,pendingMutation=null,undoS
 let view={zoom:1,panX:0,panY:0};
 let renderOptions=loadViewOptions();
 let lastGeometryProjection=[];
+let crochetTool='select',crochetStitch='sc',crochetSelectedId=null,crochetConnectFrom=null,crochetDrag=null,lastCrochetProjection=[];
 
 {
   const groups=new Map();
