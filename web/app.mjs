@@ -128,6 +128,26 @@ canvas.addEventListener('pointerdown',e=>{
     gesture={type:'pan',pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,panX:view.panX,panY:view.panY};
     canvas.classList.add('panning');canvas.setPointerCapture(e.pointerId);return;
   }
+
+  if(isGeometryTechnique(pattern.techniqueId)){
+    const node=eventToGeometryNode(e);if(!node)return;
+    ensureGeometryState();
+    if(activeTool==='fill'){
+      beginMutation('Rellenar cuentas');
+      const target=geometryColorIndex(node);
+      for(const n of currentGeometryLayout().nodes){
+        if(geometryColorIndex(n)===target) pattern.geometry.colors[n.index]=activeColor;
+      }
+      commitMutation();renderTechniqueLegend();render();return;
+    }
+    beginMutation(activeTool==='eraser'?'Borrar cuentas':'Pintar cuentas');
+    gesture={type:'geometry-paint',pointerId:e.pointerId};
+    canvas.setPointerCapture(e.pointerId);
+    paintGeometryNode(node);
+    render();
+    return;
+  }
+
   const cell=eventToCell(e);if(!cell)return;
   if(activeTool==='fill'){
     beginMutation('Rellenar área');floodFill(pattern.grid,cell.x,cell.y,activeColor);commitMutation();render();return;
@@ -137,13 +157,21 @@ canvas.addEventListener('pointerdown',e=>{
 });
 
 canvas.addEventListener('pointermove',e=>{
-  const hover=eventToCell(e);
-  if(hover)statusEl.dataset.pointer=`${hover.x+1},${hover.y+1}`;
+  const hover=isGeometryTechnique(pattern.techniqueId)?eventToGeometryNode(e):eventToCell(e);
+  if(hover){
+    statusEl.dataset.pointer=isGeometryTechnique(pattern.techniqueId)
+      ? `cuenta ${hover.sequence??hover.index+1}`
+      : `${hover.x+1},${hover.y+1}`;
+  }
   if(!gesture||gesture.pointerId!==e.pointerId){updateStatus();return}
   if(gesture.type==='pan'){
     const r=canvas.getBoundingClientRect();
     view.panX=gesture.panX+(e.clientX-gesture.startX)*canvas.width/r.width;
     view.panY=gesture.panY+(e.clientY-gesture.startY)*canvas.height/r.height;
+    render();return;
+  }
+  if(gesture.type==='geometry-paint'){
+    if(hover)paintGeometryNode(hover);
     render();return;
   }
   if(hover)paintStrokeTo(hover.x,hover.y);
@@ -211,9 +239,9 @@ function syncConversionLabels(){
 
 function finishGesture(e){
   if(!gesture||gesture.pointerId!==e.pointerId)return;
-  const painting=gesture.type==='paint';gesture=null;lastPaintedCell=null;canvas.classList.remove('panning');
+  const painting=gesture.type==='paint'||gesture.type==='geometry-paint';gesture=null;lastPaintedCell=null;canvas.classList.remove('panning');
   if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);
-  if(painting)commitMutation();
+  if(painting){commitMutation();renderTechniqueLegend();}
 }
 
 function paintStrokeTo(x,y){
