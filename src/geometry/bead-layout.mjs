@@ -1,3 +1,5 @@
+import { buildBeadCrochetRope } from './bead-rope.mjs';
+
 // Bead geometry layouts for techniques that are not rectangular grids.
 //
 // Flat peyote row staggering is adapted from the Apache-2.0 project
@@ -5,7 +7,7 @@
 // OpenPattern geometry built on the same explicit-node model.
 
 export function isGeometryTechnique(id) {
-  return id === 'peyote-flat' || id === 'peyote-star' || id === 'bead-rosette';
+  return id === 'peyote-flat' || id === 'peyote-star' || id === 'bead-rosette' || id === 'bead-crochet-rope';
 }
 
 export function buildBeadLayout(techniqueId, pattern, params = {}) {
@@ -16,6 +18,8 @@ export function buildBeadLayout(techniqueId, pattern, params = {}) {
       return buildPeyoteStar(params);
     case 'bead-rosette':
       return buildRosette(params);
+    case 'bead-crochet-rope':
+      return buildBeadCrochetRope(pattern, params);
     default:
       return { nodes: [], edges: [], bounds: { minX: 0, minY: 0, maxX: 1, maxY: 1 }, kind: techniqueId };
   }
