@@ -9,6 +9,7 @@ import { beadRunsForRepeat, detectLinearRepeat } from '../src/geometry/bead-rope
 import { drawBeadLayout, hitTestBeadLayout, projectBeadLayout } from './bead-geometry-renderer.mjs';
 import { buildAmigurumi, buildRadialCrochetChart, CROCHET_STITCHES, validateRoundSequence } from '../src/crochet/round-engine.mjs';
 import { drawCrochetTechnique } from './crochet-renderer.mjs';
+import { toCrochetParadeDsl } from '../src/crochet/crochetparade-adapter.mjs';
 
 const STORAGE_KEY='openpattern.current.v1';
 const VIEW_KEY='openpattern.view.v1';
@@ -507,7 +508,9 @@ function renderTechniqueControls(){
     addTechniqueSelectControl('Dirección','radialDirection',[['cw','Horario'],['ccw','Antihorario']],'crochet');
     addCheckControl('Rotar símbolos alrededor del círculo','radialRotateSymbols');
     note('Chart radial paramétrico: la imagen no define la geometría. Las vueltas, aumentos y puntadas se controlan aquí.');
-    renderCrochetRoundReport(currentCrochetData());
+    const radialData=currentCrochetData();
+    renderCrochetRoundReport(radialData);
+    renderCrochetParadePanel(radialData);
   }else if(pattern.techniqueId==='amigurumi'){
     hydrateCrochetOptions();
     addTechniqueSelectControl('Forma','amigurumiShape',[
@@ -521,8 +524,9 @@ function renderTechniqueControls(){
     addTechniqueNumberControl('Vueltas rectas','amigurumiBodyRounds',1,80,'crochet');
     const data=currentCrochetData();
     const issues=validateRoundSequence(data.rounds);
-    note(issues.length?`Revisión: \${issues.join(' · ')}`:'Secuencia válida en el modelo actual. La imagen no controla la construcción.');
+    note(issues.length?`Revisión: ${issues.join(' · ')}`:'Secuencia válida en el modelo actual. La imagen no controla la construcción.');
     renderCrochetRoundReport(data);
+    renderCrochetParadePanel(data);
   }else if(isGeometryTechnique(pattern.techniqueId)){
     hydrateGeometryOptions();
     const profile=document.createElement('label');
@@ -631,6 +635,25 @@ function renderCrochetRoundReport(data){
     const more=document.createElement('div');more.className='microcopy';more.textContent=`… \${data.rounds.length-16} vueltas más`;box.append(more);
   }
   techniqueOptionsEl.append(box);
+}
+
+function renderCrochetParadePanel(data){
+  const wrap=document.createElement('div');wrap.className='crochetparade-panel';
+  const title=document.createElement('strong');title.textContent='CrochetPARADE';
+  const hint=document.createElement('div');hint.className='microcopy';hint.textContent='Salida formal para el motor de parser, grafo y chart.';
+  const pre=document.createElement('pre');pre.className='dsl-preview';pre.textContent=toCrochetParadeDsl(data);
+  const copy=document.createElement('button');copy.textContent='Copiar patrón CrochetPARADE';
+  copy.addEventListener('click',async()=>{
+    try{
+      await navigator.clipboard.writeText(pre.textContent);
+      copy.textContent='Copiado';
+      setTimeout(()=>copy.textContent='Copiar patrón CrochetPARADE',1200);
+    }catch{
+      copy.textContent='No se pudo copiar';
+    }
+  });
+  wrap.append(title,hint,pre,copy);
+  techniqueOptionsEl.append(wrap);
 }
 
 function addSelectControl(label,key,items){
