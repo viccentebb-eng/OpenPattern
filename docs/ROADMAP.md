@@ -10,15 +10,20 @@
 
 ## Fase 1 — Editor real (en progreso)
 ### Entregado
-- pincel continuo
-- borrador
+- pincel continuo sin huecos
+- tamaño de pincel 1–12
+- borrador con tamaño 1–12
 - flood fill
+- limpiar lienzo (deshacer disponible)
 - undo/redo (50 pasos)
+- historial visible y retorno por pasos
 - zoom centrado en cursor
 - pan con herramienta, rueda central o barra espaciadora
 - culling básico: sólo dibujar celdas visibles
 - guardado local automático
 - modo pixel art sin suavizado
+- paleta editable y colores personalizados
+- cuantización con diversidad de color para evitar paletas llenas de grises
 - atajos de teclado
 
 ### Siguiente
@@ -26,6 +31,8 @@
 - copiar/pegar
 - mover selección
 - simetría vertical y radial
+- recorte previo de imagen y eliminación de fondo
+- controles de contraste/saturación antes de convertir
 - IndexedDB para proyectos grandes
 - PWA/offline cache
 - importación de .openpattern.json

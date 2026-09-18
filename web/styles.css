@@ -33,6 +33,13 @@ button.primary {
 
 button.primary:hover { background: #333; }
 
+button.danger {
+  color: #9f2525;
+  border-color: #d8baba;
+}
+
+button.danger:hover { background: #fff4f4; }
+
 header {
   height: 62px;
   padding: 0 16px;
@@ -53,7 +60,7 @@ header {
 main {
   height: calc(100vh - 62px);
   display: grid;
-  grid-template-columns: 270px minmax(0, 1fr);
+  grid-template-columns: 288px minmax(0, 1fr);
 }
 
 aside {
@@ -113,6 +120,20 @@ label.check {
   gap: 8px;
 }
 
+.range-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-row output {
+  text-align: right;
+  color: #666;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
 select,
 input[type="number"],
 input[type="file"] {
@@ -122,6 +143,10 @@ input[type="file"] {
   border: 1px solid #c9c9c6;
   border-radius: 7px;
   background: #fff;
+}
+
+input[type="range"] {
+  width: 100%;
 }
 
 .palette {
@@ -142,6 +167,51 @@ input[type="file"] {
 .swatch.active {
   outline: 2px solid #111;
   outline-offset: 1px;
+}
+
+.color-editor {
+  display: grid;
+  grid-template-columns: 42px 1fr 1fr;
+  gap: 6px;
+}
+
+.color-editor input[type="color"] {
+  width: 42px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid #c9c9c6;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.color-editor button { padding-inline: 6px; }
+
+.compact-actions {
+  grid-template-columns: 1fr 1fr;
+}
+
+.history-meta {
+  color: #777;
+  font-size: 11px;
+}
+
+.history {
+  display: grid;
+  gap: 5px;
+}
+
+.history button {
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history button::before {
+  content: "↶ ";
+  color: #888;
 }
 
 .hint {
@@ -205,7 +275,7 @@ canvas.panning { cursor: grabbing; }
 
 #saveStatus { white-space: nowrap; }
 
-@media (max-width: 820px) {
+@media (max-width: 900px) {
   body { overflow: auto; }
   main { height: auto; grid-template-columns: 1fr; }
   aside { border-right: 0; border-bottom: 1px solid #d2d2cf; }
