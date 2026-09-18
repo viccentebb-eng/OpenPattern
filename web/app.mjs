@@ -261,6 +261,18 @@ function linePoints(x0,y0,x1,y1){
   return pts;
 }
 
+function hydrateGeometryOptions(){
+  const params=pattern.geometry?.kind===pattern.techniqueId?(pattern.geometry.params||{}):{};
+  if(pattern.techniqueId==='peyote-star'){
+    if(Number.isFinite(+params.arms))renderOptions.starArms=+params.arms;
+    if(Number.isFinite(+params.levels))renderOptions.starLevels=+params.levels;
+    if(Number.isFinite(+params.baseWidth))renderOptions.starBaseWidth=+params.baseWidth;
+  }else if(pattern.techniqueId==='bead-rosette'){
+    if(Number.isFinite(+params.rings))renderOptions.rosetteRings=+params.rings;
+    if(Number.isFinite(+params.baseCount))renderOptions.rosetteBaseCount=+params.baseCount;
+  }
+}
+
 function currentGeometryParams(){
   if(pattern.techniqueId==='peyote-star'){
     return {arms:renderOptions.starArms,levels:renderOptions.starLevels,baseWidth:renderOptions.starBaseWidth};
@@ -384,6 +396,7 @@ function renderTechniqueControls(){
   const note=t=>{const d=document.createElement('div');d.className='technique-note';d.textContent=t;techniqueOptionsEl.append(d)};
 
   if(isGeometryTechnique(pattern.techniqueId)){
+    hydrateGeometryOptions();
     const profile=document.createElement('label');
     profile.innerHTML='Tipo de cuenta<select id="geometryBeadProfile"></select>';
     techniqueOptionsEl.append(profile);
