@@ -43,3 +43,19 @@ canvas[data-tool=eraser]{cursor:cell}canvas[data-tool=fill]{cursor:copy}canvas[d
 .mode-badge[data-mode="geometry"]{background:#eee9f7;color:#564276}
 .mode-badge[data-mode="parametric"]{background:#e8f2ec;color:#365b43}
 .mode-badge[data-mode="sequence"]{background:#f5eee3;color:#6b5133}
+
+.section-title.sub{margin-top:2px;font-size:10px}
+.crochet-tools{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.crochet-tool.active{background:#1f1f1f;color:#fff;border-color:#1f1f1f}
+.crochet-symbol-palette{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.crochet-symbol-button{display:grid;place-items:center;min-height:48px;padding:5px;border-radius:8px;background:#fff}
+.crochet-symbol-button.active{outline:2px solid #111;outline-offset:1px}
+.crochet-symbol-button .glyph{font-size:22px;line-height:1;font-weight:700}
+.crochet-symbol-button small{font-size:9px;color:#777}
+.crochet-mini-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.crochet-editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.crochet-textarea{width:100%;min-height:150px;resize:vertical;padding:9px;border:1px solid #c9c9c6;border-radius:8px;background:#fff;font:11px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}
+.crochet-text-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.crochet-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.crochet-summary div{padding:8px;border:1px solid #dededb;border-radius:8px;background:#fff;text-align:center}
+.crochet-summary strong{display:block;font-size:14px}.crochet-summary span{display:block;margin-top:2px;font-size:9px;color:#777;text-transform:uppercase;letter-spacing:.04em}
