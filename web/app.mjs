@@ -3,759 +3,432 @@ import { fillRect, floodFill, mirrorHorizontal } from '../src/core/grid.mjs';
 import { pixelsToPatternData } from '../src/image/image-to-grid.mjs';
 import { applyImageAdjustments } from '../src/image/preprocess.mjs';
 import { listTechniques } from '../src/techniques/registry.mjs';
-import { drawTechniqueCell, techniqueLegendMeta } from './technique-renderers.mjs';
+import { BEAD_PROFILES, drawTechniqueCell, estimateTechniqueSize, techniqueLegendMeta } from './technique-renderers.mjs';
 
-const STORAGE_KEY = 'openpattern.current.v1';
-const HISTORY_LIMIT = 50;
+const STORAGE_KEY='openpattern.current.v1';
+const VIEW_KEY='openpattern.view.v1';
+const HISTORY_LIMIT=50;
+const $=s=>document.querySelector(s);
 
-const canvas = document.querySelector('#canvas');
-const ctx = canvas.getContext('2d');
-const sourcePreview = document.querySelector('#sourcePreview');
-const sourceCtx = sourcePreview.getContext('2d');
-const technique = document.querySelector('#technique');
-const imageInput = document.querySelector('#image');
-const widthInput = document.querySelector('#width');
-const colorsInput = document.querySelector('#colors');
-const pixelModeInput = document.querySelector('#pixelMode');
-const cleanGridInput = document.querySelector('#cleanGrid');
-const lightThresholdInput = document.querySelector('#lightThreshold');
-const brightnessInput = document.querySelector('#brightness');
-const contrastInput = document.querySelector('#contrast');
-const saturationInput = document.querySelector('#saturation');
-const autoRegenerateInput = document.querySelector('#autoRegenerate');
-const paletteEl = document.querySelector('#palette');
-const paletteColorInput = document.querySelector('#paletteColor');
-const techniqueLegendEl = document.querySelector('#techniqueLegend');
-const statusEl = document.querySelector('#status');
-const sourceStatusEl = document.querySelector('#sourceStatus');
-const saveStatusEl = document.querySelector('#saveStatus');
-const undoButton = document.querySelector('#undo');
-const redoButton = document.querySelector('#redo');
-const historyEl = document.querySelector('#history');
-const historyMetaEl = document.querySelector('#historyMeta');
-const brushSizeInput = document.querySelector('#brushSize');
-const eraserSizeInput = document.querySelector('#eraserSize');
-const brushSizeValue = document.querySelector('#brushSizeValue');
-const eraserSizeValue = document.querySelector('#eraserSizeValue');
+const canvas=$('#canvas'),ctx=canvas.getContext('2d');
+const sourcePreview=$('#sourcePreview'),sourceCtx=sourcePreview.getContext('2d');
+const patternViewer=$('#patternViewer'),viewerCtx=patternViewer.getContext('2d');
+const technique=$('#technique'),imageInput=$('#image'),widthInput=$('#width'),colorsInput=$('#colors');
+const pixelModeInput=$('#pixelMode'),cleanGridInput=$('#cleanGrid'),lightThresholdInput=$('#lightThreshold');
+const brightnessInput=$('#brightness'),contrastInput=$('#contrast'),saturationInput=$('#saturation'),autoRegenerateInput=$('#autoRegenerate');
+const paletteEl=$('#palette'),paletteColorInput=$('#paletteColor'),techniqueLegendEl=$('#techniqueLegend'),techniqueOptionsEl=$('#techniqueOptions');
+const statusEl=$('#status'),sourceStatusEl=$('#sourceStatus'),saveStatusEl=$('#saveStatus'),projectMetaEl=$('#projectMeta');
+const undoButton=$('#undo'),redoButton=$('#redo'),historyEl=$('#history'),historyMetaEl=$('#historyMeta');
+const brushSizeInput=$('#brushSize'),eraserSizeInput=$('#eraserSize'),brushSizeValue=$('#brushSizeValue'),eraserSizeValue=$('#eraserSizeValue');
 
-let pattern = loadPattern() ?? createPattern({ techniqueId: 'tapestry-crochet', width: 32, height: 24 });
-let sourceBitmap = null;
-let sourceName = '';
-let activeColor = Math.min(1, pattern.palette.length - 1);
-let activeTool = 'pencil';
-let brushSize = 1;
-let eraserSize = 1;
-let spaceDown = false;
-let gesture = null;
-let lastPaintedCell = null;
-let pendingMutation = null;
-let undoStack = [];
-let redoStack = [];
-let regenerateTimer = null;
-let view = { zoom: 1, panX: 0, panY: 0 };
+let pattern=loadPattern()??createPattern({techniqueId:'tapestry-crochet',width:32,height:24});
+let sourceBitmap=null,sourceName='',activeColor=Math.min(1,pattern.palette.length-1),activeTool='pencil',brushSize=1,eraserSize=1;
+let spaceDown=false,gesture=null,lastPaintedCell=null,pendingMutation=null,undoStack=[],redoStack=[],regenerateTimer=null;
+let view={zoom:1,panX:0,panY:0};
+let renderOptions=loadViewOptions();
 
-for (const item of listTechniques()) {
-  const option = document.createElement('option');
-  option.value = item.id;
-  option.textContent = item.name;
-  technique.append(option);
-}
-technique.value = pattern.techniqueId;
+for(const item of listTechniques()){const o=document.createElement('option');o.value=item.id;o.textContent=item.name;technique.append(o)}
+technique.value=pattern.techniqueId;
+for(const b of document.querySelectorAll('.tool'))b.addEventListener('click',()=>setTool(b.dataset.tool));
 
-for (const button of document.querySelectorAll('.tool')) {
-  button.addEventListener('click', () => setTool(button.dataset.tool));
-}
+brushSizeInput.addEventListener('input',()=>{brushSize=+brushSizeInput.value;brushSizeValue.value=`\${brushSize}×\${brushSize}`;updateStatus()});
+eraserSizeInput.addEventListener('input',()=>{eraserSize=+eraserSizeInput.value;eraserSizeValue.value=`\${eraserSize}×\${eraserSize}`;updateStatus()});
 
-brushSizeInput.addEventListener('input', () => {
-  brushSize = Number(brushSizeInput.value);
-  brushSizeValue.value = `${brushSize}×${brushSize}`;
-  updateStatus();
-});
-
-eraserSizeInput.addEventListener('input', () => {
-  eraserSize = Number(eraserSizeInput.value);
-  eraserSizeValue.value = `${eraserSize}×${eraserSize}`;
-  updateStatus();
-});
-
-technique.addEventListener('change', () => {
+technique.addEventListener('change',()=>{
   beginMutation('Cambiar técnica');
-  pattern.techniqueId = technique.value;
+  pattern.techniqueId=technique.value;
   commitMutation();
-  render();
+  renderTechniqueControls();
   renderTechniqueLegend();
+  render();
 });
 
-imageInput.addEventListener('change', async () => {
-  const file = imageInput.files?.[0];
-  if (!file) return;
-
+imageInput.addEventListener('change',async()=>{
+  const f=imageInput.files?.[0];
+  if(!f)return;
   sourceBitmap?.close?.();
-  sourceBitmap = await createImageBitmap(file);
-  sourceName = file.name;
-  sourceStatusEl.textContent = `${file.name} · ${sourceBitmap.width}×${sourceBitmap.height}`;
+  sourceBitmap=await createImageBitmap(f);
+  sourceName=f.name;
+  sourceStatusEl.textContent=`\${f.name} · \${sourceBitmap.width}×\${sourceBitmap.height}`;
   drawSourcePreview();
-  await regeneratePattern('Importar imagen', true);
+  await regeneratePattern('Importar imagen',true);
 });
 
-for (const control of [
-  widthInput,
-  colorsInput,
-  pixelModeInput,
-  cleanGridInput,
-  lightThresholdInput,
-  brightnessInput,
-  contrastInput,
-  saturationInput
-]) {
-  control.addEventListener('input', () => {
-    syncConversionLabels();
-    scheduleRegenerate();
-  });
-  control.addEventListener('change', scheduleRegenerate);
+for(const c of [widthInput,colorsInput,pixelModeInput,cleanGridInput,lightThresholdInput,brightnessInput,contrastInput,saturationInput]){
+  c.addEventListener('input',()=>{syncConversionLabels();scheduleRegenerate()});
+  c.addEventListener('change',scheduleRegenerate);
 }
 
-document.querySelector('#regenerate').addEventListener('click', () => regeneratePattern('Regenerar diseño'));
-document.querySelector('#resetConversion').addEventListener('click', () => {
-  widthInput.value = 48;
-  colorsInput.value = 8;
-  pixelModeInput.checked = false;
-  cleanGridInput.checked = false;
-  lightThresholdInput.value = 215;
-  brightnessInput.value = 0;
-  contrastInput.value = 0;
-  saturationInput.value = 0;
+$('#regenerate').addEventListener('click',()=>regeneratePattern('Regenerar diseño'));
+$('#resetConversion').addEventListener('click',()=>{
+  widthInput.value=48;colorsInput.value=8;pixelModeInput.checked=false;cleanGridInput.checked=false;
+  lightThresholdInput.value=215;brightnessInput.value=0;contrastInput.value=0;saturationInput.value=0;
   syncConversionLabels();
-  if (sourceBitmap) regeneratePattern('Restablecer conversión');
+  if(sourceBitmap)regeneratePattern('Restablecer conversión');
 });
-
-document.querySelector('#mirror').addEventListener('click', () => {
-  beginMutation('Espejar horizontal');
-  mirrorHorizontal(pattern.grid);
-  commitMutation();
-  render();
-});
-
-document.querySelector('#clearAll').addEventListener('click', () => {
-  beginMutation('Limpiar lienzo');
-  pattern.grid.cells.fill(0);
-  commitMutation();
-  render();
-});
-
-document.querySelector('#addColor').addEventListener('click', () => {
-  if (pattern.palette.length >= 64) return;
-  const rgb = hexToRgb(paletteColorInput.value);
+$('#mirror').addEventListener('click',()=>{beginMutation('Espejar horizontal');mirrorHorizontal(pattern.grid);commitMutation();render()});
+$('#clearAll').addEventListener('click',()=>{beginMutation('Limpiar lienzo');pattern.grid.cells.fill(0);commitMutation();render()});
+$('#addColor').addEventListener('click',()=>{
+  if(pattern.palette.length>=64)return;
   beginMutation('Añadir color');
-  pattern.palette.push({
-    id: `c${Date.now().toString(36)}`,
-    name: paletteColorInput.value.toUpperCase(),
-    rgb
-  });
-  activeColor = pattern.palette.length - 1;
-  commitMutation();
-  renderPalette();
-  renderTechniqueLegend();
-  render();
+  pattern.palette.push({id:`c\${Date.now().toString(36)}`,name:paletteColorInput.value.toUpperCase(),rgb:hexToRgb(paletteColorInput.value)});
+  activeColor=pattern.palette.length-1;
+  commitMutation();renderPalette();renderTechniqueLegend();render();
 });
-
-document.querySelector('#updateColor').addEventListener('click', () => {
-  if (!pattern.palette[activeColor]) return;
+$('#updateColor').addEventListener('click',()=>{
+  if(!pattern.palette[activeColor])return;
   beginMutation('Editar color');
-  const rgb = hexToRgb(paletteColorInput.value);
-  pattern.palette[activeColor] = {
-    ...pattern.palette[activeColor],
-    name: paletteColorInput.value.toUpperCase(),
-    rgb
-  };
-  commitMutation();
-  renderPalette();
-  renderTechniqueLegend();
+  pattern.palette[activeColor]={...pattern.palette[activeColor],name:paletteColorInput.value.toUpperCase(),rgb:hexToRgb(paletteColorInput.value)};
+  commitMutation();renderPalette();renderTechniqueLegend();render();
+});
+$('#resetView').addEventListener('click',()=>{view={zoom:1,panX:0,panY:0};render()});
+undoButton.addEventListener('click',undo);
+redoButton.addEventListener('click',redo);
+
+$('#showGuides').checked=renderOptions.showGuides;
+$('#guideSpacing').value=renderOptions.guideSpacing;
+$('#showCoordinates').checked=renderOptions.showCoordinates;
+$('#trackMode').checked=renderOptions.trackMode;
+
+for(const id of ['showGuides','showCoordinates','trackMode']){
+  $(`#\${id}`).addEventListener('change',e=>{renderOptions[id]=e.target.checked;saveViewOptions();render()});
+}
+$('#guideSpacing').addEventListener('change',e=>{
+  renderOptions.guideSpacing=Math.max(2,Math.min(50,+e.target.value||10));
+  saveViewOptions();render();
+});
+$('#trackPrev').addEventListener('click',()=>{renderOptions.trackIndex=Math.max(0,renderOptions.trackIndex-1);saveViewOptions();render()});
+$('#trackNext').addEventListener('click',()=>{renderOptions.trackIndex=Math.min(pattern.grid.height-1,renderOptions.trackIndex+1);saveViewOptions();render()});
+
+$('#download').addEventListener('click',()=>{
+  const blob=new Blob([JSON.stringify(pattern,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=`\${safeName(pattern.title)}.openpattern.json`;a.click();URL.revokeObjectURL(url);
+});
+
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const p=pointerToCanvas(e),old=getLayout(),gx=(p.x-old.offsetX)/old.cell,gy=(p.y-old.offsetY)/old.cell;
+  const nz=clamp(view.zoom*(e.deltaY<0?1.12:1/1.12),.2,16);
+  if(nz===view.zoom)return;
+  view.zoom=nz;
+  const nc=getBaseCell()*view.zoom;
+  view.panX=p.x-(canvas.width-nc*pattern.grid.width)/2-gx*nc;
+  view.panY=p.y-(canvas.height-nc*pattern.grid.height)/2-gy*nc;
   render();
+},{passive:false});
+
+canvas.addEventListener('pointerdown',e=>{
+  const pan=activeTool==='pan'||spaceDown||e.button===1;
+  if(pan){
+    gesture={type:'pan',pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,panX:view.panX,panY:view.panY};
+    canvas.classList.add('panning');canvas.setPointerCapture(e.pointerId);return;
+  }
+  const cell=eventToCell(e);if(!cell)return;
+  if(activeTool==='fill'){
+    beginMutation('Rellenar área');floodFill(pattern.grid,cell.x,cell.y,activeColor);commitMutation();render();return;
+  }
+  beginMutation(activeTool==='eraser'?'Borrar':'Pincel');
+  gesture={type:'paint',pointerId:e.pointerId};lastPaintedCell=null;canvas.setPointerCapture(e.pointerId);paintStrokeTo(cell.x,cell.y);
 });
 
-document.querySelector('#resetView').addEventListener('click', () => {
-  view = { zoom: 1, panX: 0, panY: 0 };
-  render();
+canvas.addEventListener('pointermove',e=>{
+  const hover=eventToCell(e);
+  if(hover)statusEl.dataset.pointer=`\${hover.x+1},\${hover.y+1}`;
+  if(!gesture||gesture.pointerId!==e.pointerId){updateStatus();return}
+  if(gesture.type==='pan'){
+    const r=canvas.getBoundingClientRect();
+    view.panX=gesture.panX+(e.clientX-gesture.startX)*canvas.width/r.width;
+    view.panY=gesture.panY+(e.clientY-gesture.startY)*canvas.height/r.height;
+    render();return;
+  }
+  if(hover)paintStrokeTo(hover.x,hover.y);
 });
 
-undoButton.addEventListener('click', undo);
-redoButton.addEventListener('click', redo);
+canvas.addEventListener('pointerup',finishGesture);
+canvas.addEventListener('pointercancel',finishGesture);
 
-document.querySelector('#download').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify(pattern, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${safeName(pattern.title)}.openpattern.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+window.addEventListener('keydown',e=>{
+  const typing=e.target instanceof HTMLInputElement||e.target instanceof HTMLSelectElement||e.target instanceof HTMLTextAreaElement;
+  const mod=e.ctrlKey||e.metaKey;
+  if(mod&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
+  if(mod&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return}
+  if(typing)return;
+  if(e.code==='Space'){e.preventDefault();spaceDown=true;canvas.classList.add('panning');return}
+  const s={b:'pencil',e:'eraser',g:'fill',h:'pan'}[e.key.toLowerCase()];
+  if(s)setTool(s);
 });
+window.addEventListener('keyup',e=>{if(e.code==='Space'){spaceDown=false;if(gesture?.type!=='pan')canvas.classList.remove('panning')}});
+window.addEventListener('beforeunload',savePattern);
 
-canvas.addEventListener('wheel', (event) => {
-  event.preventDefault();
-  const point = pointerToCanvas(event);
-  const oldLayout = getLayout();
-  const gridX = (point.x - oldLayout.offsetX) / oldLayout.cell;
-  const gridY = (point.y - oldLayout.offsetY) / oldLayout.cell;
-  const nextZoom = clamp(view.zoom * (event.deltaY < 0 ? 1.12 : 1 / 1.12), 0.2, 16);
-  if (nextZoom === view.zoom) return;
-
-  view.zoom = nextZoom;
-  const nextCell = getBaseCell() * view.zoom;
-  const baseOffsetX = (canvas.width - nextCell * pattern.grid.width) / 2;
-  const baseOffsetY = (canvas.height - nextCell * pattern.grid.height) / 2;
-  view.panX = point.x - baseOffsetX - gridX * nextCell;
-  view.panY = point.y - baseOffsetY - gridY * nextCell;
-  render();
-}, { passive: false });
-
-canvas.addEventListener('pointerdown', (event) => {
-  const shouldPan = activeTool === 'pan' || spaceDown || event.button === 1;
-
-  if (shouldPan) {
-    gesture = {
-      type: 'pan',
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      panX: view.panX,
-      panY: view.panY
-    };
-    canvas.classList.add('panning');
-    canvas.setPointerCapture(event.pointerId);
-    return;
-  }
-
-  const cell = eventToCell(event);
-  if (!cell) return;
-
-  if (activeTool === 'fill') {
-    beginMutation('Rellenar área');
-    floodFill(pattern.grid, cell.x, cell.y, activeColor);
-    commitMutation();
-    render();
-    return;
-  }
-
-  beginMutation(activeTool === 'eraser' ? 'Borrar' : 'Pincel');
-  gesture = { type: 'paint', pointerId: event.pointerId };
-  lastPaintedCell = null;
-  canvas.setPointerCapture(event.pointerId);
-  paintStrokeTo(cell.x, cell.y);
-});
-
-canvas.addEventListener('pointermove', (event) => {
-  if (!gesture || gesture.pointerId !== event.pointerId) return;
-
-  if (gesture.type === 'pan') {
-    const rect = canvas.getBoundingClientRect();
-    const sx = canvas.width / rect.width;
-    const sy = canvas.height / rect.height;
-    view.panX = gesture.panX + (event.clientX - gesture.startX) * sx;
-    view.panY = gesture.panY + (event.clientY - gesture.startY) * sy;
-    render();
-    return;
-  }
-
-  const cell = eventToCell(event);
-  if (cell) paintStrokeTo(cell.x, cell.y);
-});
-
-canvas.addEventListener('pointerup', finishGesture);
-canvas.addEventListener('pointercancel', finishGesture);
-
-window.addEventListener('keydown', (event) => {
-  const target = event.target;
-  const typing = target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement;
-  const modifier = event.ctrlKey || event.metaKey;
-
-  if (modifier && event.key.toLowerCase() === 'z') {
-    event.preventDefault();
-    event.shiftKey ? redo() : undo();
-    return;
-  }
-
-  if (modifier && event.key.toLowerCase() === 'y') {
-    event.preventDefault();
-    redo();
-    return;
-  }
-
-  if (typing) return;
-
-  if (event.code === 'Space') {
-    event.preventDefault();
-    spaceDown = true;
-    canvas.classList.add('panning');
-    return;
-  }
-
-  const shortcuts = { b: 'pencil', e: 'eraser', g: 'fill', h: 'pan' };
-  const tool = shortcuts[event.key.toLowerCase()];
-  if (tool) setTool(tool);
-});
-
-window.addEventListener('keyup', (event) => {
-  if (event.code === 'Space') {
-    spaceDown = false;
-    if (gesture?.type !== 'pan') canvas.classList.remove('panning');
-  }
-});
-
-window.addEventListener('beforeunload', savePattern);
-
-async function regeneratePattern(label = 'Regenerar diseño', resetView = false) {
-  if (!sourceBitmap) {
-    sourceStatusEl.textContent = 'Carga una imagen antes de regenerar.';
-    return;
-  }
-
-  clearTimeout(regenerateTimer);
-  sourceStatusEl.textContent = 'Generando…';
-
-  const width = clamp(Math.round(Number(widthInput.value) || 48), 8, 300);
-  const height = Math.max(1, Math.round(sourceBitmap.height * width / sourceBitmap.width));
-  const work = document.createElement('canvas');
-  work.width = width;
-  work.height = height;
-
-  const wctx = work.getContext('2d', { willReadFrequently: true });
-  wctx.imageSmoothingEnabled = !pixelModeInput.checked;
-  wctx.imageSmoothingQuality = 'high';
-  wctx.drawImage(sourceBitmap, 0, 0, width, height);
-
-  const data = wctx.getImageData(0, 0, width, height);
-  const adjusted = applyImageAdjustments(data.data, {
-    brightness: brightnessInput.value,
-    contrast: contrastInput.value,
-    saturation: saturationInput.value,
-    removeLightGrid: cleanGridInput.checked,
-    lightThreshold: lightThresholdInput.value,
-    neutralTolerance: 24
+async function regeneratePattern(label='Regenerar diseño',resetView=false){
+  if(!sourceBitmap){sourceStatusEl.textContent='Carga una imagen antes de regenerar.';return}
+  clearTimeout(regenerateTimer);sourceStatusEl.textContent='Generando…';
+  const width=clamp(Math.round(+widthInput.value||48),8,300);
+  const height=Math.max(1,Math.round(sourceBitmap.height*width/sourceBitmap.width));
+  const work=document.createElement('canvas');work.width=width;work.height=height;
+  const wctx=work.getContext('2d',{willReadFrequently:true});
+  wctx.imageSmoothingEnabled=!pixelModeInput.checked;wctx.imageSmoothingQuality='high';wctx.drawImage(sourceBitmap,0,0,width,height);
+  const data=wctx.getImageData(0,0,width,height);
+  const adjusted=applyImageAdjustments(data.data,{
+    brightness:brightnessInput.value,contrast:contrastInput.value,saturation:saturationInput.value,
+    removeLightGrid:cleanGridInput.checked,lightThreshold:lightThresholdInput.value,neutralTolerance:24
   });
-
-  const converted = pixelsToPatternData({
-    rgba: adjusted,
-    width,
-    height,
-    maxColors: clamp(Math.round(Number(colorsInput.value) || 8), 2, 32)
-  });
-
+  const converted=pixelsToPatternData({rgba:adjusted,width,height,maxColors:clamp(Math.round(+colorsInput.value||8),2,32)});
   beginMutation(label);
-  pattern = createPattern({
-    techniqueId: technique.value,
-    width,
-    height,
-    title: sourceName.replace(/\.[^.]+$/, '') || 'Imagen',
-    palette: converted.palette
-  });
-  pattern.grid.cells = converted.cells;
-  activeColor = 0;
-  if (resetView) view = { zoom: 1, panX: 0, panY: 0 };
+  pattern=createPattern({techniqueId:technique.value,width,height,title:sourceName.replace(/\.[^.]+$/,'')||'Imagen',palette:converted.palette});
+  pattern.grid.cells=converted.cells;activeColor=0;renderOptions.trackIndex=0;
+  if(resetView)view={zoom:1,panX:0,panY:0};
   commitMutation();
-
-  syncPaletteEditor();
-  renderPalette();
-  renderTechniqueLegend();
-  render();
-  sourceStatusEl.textContent = `${sourceName} → ${width}×${height} · ${converted.palette.length} colores`;
+  syncPaletteEditor();renderPalette();renderTechniqueLegend();renderTechniqueControls();render();
+  sourceStatusEl.textContent=`\${sourceName} → \${width}×\${height} · \${converted.palette.length} colores`;
 }
 
-function scheduleRegenerate() {
-  if (!autoRegenerateInput.checked || !sourceBitmap) return;
+function scheduleRegenerate(){
+  if(!autoRegenerateInput.checked||!sourceBitmap)return;
   clearTimeout(regenerateTimer);
-  regenerateTimer = setTimeout(() => regeneratePattern('Ajustar conversión'), 280);
+  regenerateTimer=setTimeout(()=>regeneratePattern('Ajustar conversión'),280);
 }
 
-function drawSourcePreview() {
-  sourceCtx.clearRect(0, 0, sourcePreview.width, sourcePreview.height);
-  sourceCtx.fillStyle = '#fff';
-  sourceCtx.fillRect(0, 0, sourcePreview.width, sourcePreview.height);
-  if (!sourceBitmap) return;
-
-  const scale = Math.min(sourcePreview.width / sourceBitmap.width, sourcePreview.height / sourceBitmap.height);
-  const width = sourceBitmap.width * scale;
-  const height = sourceBitmap.height * scale;
-  sourceCtx.drawImage(
-    sourceBitmap,
-    (sourcePreview.width - width) / 2,
-    (sourcePreview.height - height) / 2,
-    width,
-    height
-  );
+function drawSourcePreview(){
+  sourceCtx.clearRect(0,0,sourcePreview.width,sourcePreview.height);
+  sourceCtx.fillStyle='#fff';sourceCtx.fillRect(0,0,sourcePreview.width,sourcePreview.height);
+  if(!sourceBitmap)return;
+  const s=Math.min(sourcePreview.width/sourceBitmap.width,sourcePreview.height/sourceBitmap.height);
+  const w=sourceBitmap.width*s,h=sourceBitmap.height*s;
+  sourceCtx.drawImage(sourceBitmap,(sourcePreview.width-w)/2,(sourcePreview.height-h)/2,w,h);
 }
 
-function syncConversionLabels() {
-  document.querySelector('#lightThresholdValue').value = lightThresholdInput.value;
-  document.querySelector('#brightnessValue').value = brightnessInput.value;
-  document.querySelector('#contrastValue').value = contrastInput.value;
-  document.querySelector('#saturationValue').value = saturationInput.value;
-}
-
-function finishGesture(event) {
-  if (!gesture || gesture.pointerId !== event.pointerId) return;
-  const wasPainting = gesture.type === 'paint';
-
-  gesture = null;
-  lastPaintedCell = null;
-  canvas.classList.remove('panning');
-
-  if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-  if (wasPainting) commitMutation();
-}
-
-function paintStrokeTo(x, y) {
-  if (!lastPaintedCell) {
-    applyBrushAt(x, y);
-    lastPaintedCell = { x, y };
-    render();
-    return;
+function syncConversionLabels(){
+  for(const [id,el] of [['lightThreshold',lightThresholdInput],['brightness',brightnessInput],['contrast',contrastInput],['saturation',saturationInput]]){
+    $(`#\${id}Value`).value=el.value;
   }
-
-  for (const point of linePoints(lastPaintedCell.x, lastPaintedCell.y, x, y)) {
-    applyBrushAt(point.x, point.y);
-  }
-
-  lastPaintedCell = { x, y };
-  render();
 }
 
-function applyBrushAt(x, y) {
-  const erasing = activeTool === 'eraser';
-  const size = erasing ? eraserSize : brushSize;
-  const value = erasing ? 0 : activeColor;
-  const start = Math.floor((size - 1) / 2);
-  fillRect(pattern.grid, x - start, y - start, size, size, value);
+function finishGesture(e){
+  if(!gesture||gesture.pointerId!==e.pointerId)return;
+  const painting=gesture.type==='paint';gesture=null;lastPaintedCell=null;canvas.classList.remove('panning');
+  if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);
+  if(painting)commitMutation();
 }
 
-function linePoints(x0, y0, x1, y1) {
-  const points = [];
-  let x = x0;
-  let y = y0;
-  const dx = Math.abs(x1 - x0);
-  const sx = x0 < x1 ? 1 : -1;
-  const dy = -Math.abs(y1 - y0);
-  const sy = y0 < y1 ? 1 : -1;
-  let error = dx + dy;
-
-  while (true) {
-    points.push({ x, y });
-    if (x === x1 && y === y1) break;
-    const twice = 2 * error;
-    if (twice >= dy) {
-      error += dy;
-      x += sx;
-    }
-    if (twice <= dx) {
-      error += dx;
-      y += sy;
-    }
-  }
-
-  return points;
+function paintStrokeTo(x,y){
+  if(!lastPaintedCell){applyBrushAt(x,y);lastPaintedCell={x,y};render();return}
+  for(const p of linePoints(lastPaintedCell.x,lastPaintedCell.y,x,y))applyBrushAt(p.x,p.y);
+  lastPaintedCell={x,y};render();
 }
 
-function setTool(tool) {
-  activeTool = tool;
-  canvas.dataset.tool = tool;
+function applyBrushAt(x,y){
+  const erasing=activeTool==='eraser',size=erasing?eraserSize:brushSize,start=Math.floor((size-1)/2);
+  fillRect(pattern.grid,x-start,y-start,size,size,erasing?0:activeColor);
+}
 
-  for (const button of document.querySelectorAll('.tool')) {
-    button.classList.toggle('active', button.dataset.tool === tool);
-  }
+function linePoints(x0,y0,x1,y1){
+  const pts=[];let x=x0,y=y0,dx=Math.abs(x1-x0),sx=x0<x1?1:-1,dy=-Math.abs(y1-y0),sy=y0<y1?1:-1,err=dx+dy;
+  while(true){pts.push({x,y});if(x===x1&&y===y1)break;const e2=2*err;if(e2>=dy){err+=dy;x+=sx}if(e2<=dx){err+=dx;y+=sy}}
+  return pts;
+}
 
+function setTool(tool){
+  activeTool=tool;canvas.dataset.tool=tool;
+  for(const b of document.querySelectorAll('.tool'))b.classList.toggle('active',b.dataset.tool===tool);
   updateStatus();
 }
 
-function beginMutation(label = 'Cambio') {
-  if (pendingMutation) return;
-  pendingMutation = { pattern: clone(pattern), label };
+function beginMutation(label='Cambio'){if(!pendingMutation)pendingMutation={pattern:clone(pattern),label}}
+function commitMutation(){
+  if(!pendingMutation)return;
+  const changed=JSON.stringify(pendingMutation.pattern)!==JSON.stringify(pattern);
+  if(changed){undoStack.push(pendingMutation);if(undoStack.length>HISTORY_LIMIT)undoStack.shift();redoStack=[];touchPattern(pattern)}
+  pendingMutation=null;savePattern();updateHistoryUI();updateStatus();
 }
-
-function commitMutation() {
-  if (!pendingMutation) return;
-  const changed = JSON.stringify(pendingMutation.pattern) !== JSON.stringify(pattern);
-
-  if (changed) {
-    undoStack.push(pendingMutation);
-    if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
-    redoStack = [];
-    touchPattern(pattern);
-  }
-
-  pendingMutation = null;
-  savePattern();
-  updateHistoryUI();
-  updateStatus();
+function undo(){if(!undoStack.length)return;const e=undoStack.pop();redoStack.push({pattern:clone(pattern),label:e.label});pattern=e.pattern;afterPatternRestore()}
+function redo(){if(!redoStack.length)return;const e=redoStack.pop();undoStack.push({pattern:clone(pattern),label:e.label});pattern=e.pattern;afterPatternRestore()}
+function undoSteps(n){for(let i=0;i<n&&undoStack.length;i++)undo()}
+function afterPatternRestore(){
+  technique.value=pattern.techniqueId;activeColor=Math.min(activeColor,pattern.palette.length-1);
+  syncPaletteEditor();renderPalette();renderTechniqueLegend();renderTechniqueControls();savePattern();updateHistoryUI();render();
 }
-
-function undo() {
-  if (!undoStack.length) return;
-  const entry = undoStack.pop();
-  redoStack.push({ pattern: clone(pattern), label: entry.label });
-  pattern = entry.pattern;
-  afterPatternRestore();
-}
-
-function redo() {
-  if (!redoStack.length) return;
-  const entry = redoStack.pop();
-  undoStack.push({ pattern: clone(pattern), label: entry.label });
-  pattern = entry.pattern;
-  afterPatternRestore();
-}
-
-function undoSteps(count) {
-  for (let i = 0; i < count && undoStack.length; i += 1) undo();
-}
-
-function afterPatternRestore() {
-  technique.value = pattern.techniqueId;
-  activeColor = Math.min(activeColor, pattern.palette.length - 1);
-  syncPaletteEditor();
-  renderPalette();
-  renderTechniqueLegend();
-  savePattern();
-  updateHistoryUI();
-  render();
-}
-
-function updateHistoryUI() {
-  undoButton.disabled = undoStack.length === 0;
-  redoButton.disabled = redoStack.length === 0;
-  historyMetaEl.textContent = `${undoStack.length} cambios · ${redoStack.length} para rehacer`;
-
+function updateHistoryUI(){
+  undoButton.disabled=!undoStack.length;redoButton.disabled=!redoStack.length;
+  historyMetaEl.textContent=`\${undoStack.length} cambios · \${redoStack.length} para rehacer`;
   historyEl.replaceChildren();
-  undoStack.slice(-8).reverse().forEach((entry, index) => {
-    const button = document.createElement('button');
-    button.textContent = entry.label;
-    button.title = `Volver hasta: ${entry.label}`;
-    button.addEventListener('click', () => undoSteps(index + 1));
-    historyEl.append(button);
-  });
+  undoStack.slice(-8).reverse().forEach((e,i)=>{const b=document.createElement('button');b.textContent=e.label;b.addEventListener('click',()=>undoSteps(i+1));historyEl.append(b)});
 }
 
-function renderPalette() {
+function renderPalette(){
   paletteEl.replaceChildren();
-
-  pattern.palette.forEach((color, index) => {
-    const button = document.createElement('button');
-    button.className = `swatch${index === activeColor ? ' active' : ''}`;
-    button.style.background = `rgb(${color.rgb.join(',')})`;
-    button.title = `${index + 1}. ${color.name}`;
-    button.setAttribute('aria-label', color.name);
-    button.addEventListener('click', () => {
-      activeColor = index;
-      if (activeTool === 'eraser') setTool('pencil');
-      syncPaletteEditor();
-      renderPalette();
-      updateStatus();
-    });
-    paletteEl.append(button);
+  pattern.palette.forEach((c,i)=>{
+    const b=document.createElement('button');b.className=`swatch\${i===activeColor?' active':''}`;b.style.background=`rgb(\${c.rgb.join(',')})`;b.title=`\${i+1}. \${c.name}`;
+    b.addEventListener('click',()=>{activeColor=i;if(activeTool==='eraser')setTool('pencil');syncPaletteEditor();renderPalette();updateStatus()});
+    paletteEl.append(b);
   });
 }
 
-function renderTechniqueLegend() {
-  const counts = Array(pattern.palette.length).fill(0);
-  for (const paletteIndex of pattern.grid.cells) {
-    if (paletteIndex >= 0 && paletteIndex < counts.length) counts[paletteIndex] += 1;
-  }
-
+function renderTechniqueLegend(){
+  const counts=Array(pattern.palette.length).fill(0);
+  for(const i of pattern.grid.cells)if(i>=0&&i<counts.length)counts[i]++;
   techniqueLegendEl.replaceChildren();
-
-  pattern.palette.forEach((color, index) => {
-    const meta = techniqueLegendMeta(pattern.techniqueId, index);
-    const row = document.createElement('div');
-    row.className = 'legend-row';
-
-    const chip = document.createElement('span');
-    chip.className = 'legend-chip';
-    chip.style.background = `rgb(${color.rgb.join(',')})`;
-
-    const symbol = document.createElement('span');
-    symbol.className = 'legend-symbol';
-    symbol.textContent = meta.symbol;
-
-    const details = document.createElement('span');
-    details.className = 'legend-details';
-    const title = document.createElement('span');
-    title.textContent = color.name;
-    const small = document.createElement('small');
-    small.textContent = meta.catalog;
-    details.append(title, small);
-
-    const count = document.createElement('span');
-    count.className = 'legend-count';
-    count.textContent = `${counts[index]} ${meta.unit}`;
-
-    row.append(chip, symbol, details, count);
+  pattern.palette.forEach((c,i)=>{
+    const m=techniqueLegendMeta(pattern.techniqueId,i,renderOptions),row=document.createElement('div');
+    row.className='legend-row';
+    row.innerHTML=`<span class="legend-chip" style="background:rgb(\${c.rgb.join(',')})"></span><span class="legend-symbol">\${m.symbol}</span><span class="legend-details"><span>\${c.name}</span><small>\${m.catalog}</small></span><span class="legend-count">\${counts[i]} \${m.unit}</span>`;
     techniqueLegendEl.append(row);
   });
 }
 
-function syncPaletteEditor() {
-  const rgb = pattern.palette[activeColor]?.rgb ?? [0, 0, 0];
-  paletteColorInput.value = rgbToHex(rgb);
+function syncPaletteEditor(){paletteColorInput.value=rgbToHex(pattern.palette[activeColor]?.rgb??[0,0,0])}
+
+function renderTechniqueControls(){
+  techniqueOptionsEl.replaceChildren();
+  const note=t=>{const d=document.createElement('div');d.className='technique-note';d.textContent=t;techniqueOptionsEl.append(d)};
+
+  if(pattern.techniqueId==='bead-loom'){
+    const profile=document.createElement('label');
+    profile.innerHTML='Tipo de cuenta<select id="beadProfile"></select>';
+    techniqueOptionsEl.append(profile);
+    const select=profile.querySelector('select');
+    for(const p of Object.values(BEAD_PROFILES)){const o=document.createElement('option');o.value=p.id;o.textContent=p.label;select.append(o)}
+    select.value=renderOptions.beadProfile;
+    select.addEventListener('change',e=>{renderOptions.beadProfile=e.target.value;saveViewOptions();renderTechniqueLegend();render()});
+    addSelectControl('Acabado visual','beadRender',[['realistic','Realista'],['simple','Plano']]);
+    addCheckControl('Mostrar orificio','beadHoles');
+    addCheckControl('Letras/índices sobre cuentas','beadSymbols');
+    note('La vista usa proporciones aproximadas del tipo de cuenta. Los códigos DB/TOHO reales llegarán con Materials Engine.');
+  }else if(pattern.techniqueId==='cross-stitch'){
+    addSelectControl('Vista','crossStyle',[['color-symbol','Color + símbolo'],['color','Cruces de color'],['symbol','Sólo símbolos']]);
+    note('La leyenda asigna símbolos por color; DMC/Anchor llegará con Materials Engine.');
+  }else if(pattern.techniqueId==='knitting-colorwork'){
+    addSelectControl('Vista','knitStyle',[['color-v','Color + V'],['block','Bloque de color'],['symbol','Símbolo']]);
+    note('Aumentos, disminuciones, cables y símbolos de puntada requieren Symbol Engine.');
+  }else if(pattern.techniqueId==='c2c-crochet'){
+    addCheckControl('Mostrar diagonal del bloque','c2cDiagonal');
+    note('La lectura diagonal y los conteos por color llegarán con Sequence Engine.');
+  }else{
+    note('Esta técnica usa el Grid Engine base. Las instrucciones y símbolos específicos llegarán con Sequence/Symbol Engine.');
+  }
 }
 
-function getBaseCell() {
-  const pad = 52;
-  return Math.max(1, Math.min(
-    (canvas.width - pad * 2) / pattern.grid.width,
-    (canvas.height - pad * 2) / pattern.grid.height
-  ));
+function addSelectControl(label,key,items){
+  const l=document.createElement('label'),s=document.createElement('select');
+  l.append(document.createTextNode(label),s);
+  for(const [v,t] of items){const o=document.createElement('option');o.value=v;o.textContent=t;s.append(o)}
+  s.value=renderOptions[key];
+  s.addEventListener('change',e=>{renderOptions[key]=e.target.value;saveViewOptions();renderTechniqueLegend();render()});
+  techniqueOptionsEl.append(l);
 }
 
-function getLayout() {
-  const cell = getBaseCell() * view.zoom;
-  const drawWidth = cell * pattern.grid.width;
-  const drawHeight = cell * pattern.grid.height;
-
-  return {
-    cell,
-    offsetX: (canvas.width - drawWidth) / 2 + view.panX,
-    offsetY: (canvas.height - drawHeight) / 2 + view.panY
-  };
+function addCheckControl(label,key){
+  const l=document.createElement('label');l.className='check';
+  const i=document.createElement('input');i.type='checkbox';i.checked=renderOptions[key]!==false;
+  l.append(i,document.createTextNode(label));
+  i.addEventListener('change',()=>{renderOptions[key]=i.checked;saveViewOptions();render()});
+  techniqueOptionsEl.append(l);
 }
 
-function render() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#f7f7f5';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  const { cell, offsetX, offsetY } = getLayout();
-  const drawWidth = cell * pattern.grid.width;
-  const drawHeight = cell * pattern.grid.height;
-
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(offsetX, offsetY, drawWidth, drawHeight);
-
-  const startX = clamp(Math.floor(-offsetX / cell), 0, pattern.grid.width);
-  const startY = clamp(Math.floor(-offsetY / cell), 0, pattern.grid.height);
-  const endX = clamp(Math.ceil((canvas.width - offsetX) / cell), 0, pattern.grid.width);
-  const endY = clamp(Math.ceil((canvas.height - offsetY) / cell), 0, pattern.grid.height);
-
-  for (let y = startY; y < endY; y += 1) {
-    for (let x = startX; x < endX; x += 1) {
-      const paletteIndex = pattern.grid.cells[y * pattern.grid.width + x];
-      const color = pattern.palette[paletteIndex]?.rgb ?? [255, 0, 255];
-      drawTechniqueCell(ctx, pattern.techniqueId, {
-        x: offsetX + x * cell,
-        y: offsetY + y * cell,
-        width: cell,
-        height: cell
-      }, color, paletteIndex);
-    }
-  }
-
-  if (cell >= 7 && pattern.techniqueId !== 'bead-loom') {
-    drawGrid({ cell, offsetX, offsetY, startX, startY, endX, endY });
-  }
-
-  ctx.strokeStyle = 'rgba(0,0,0,.32)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(offsetX + .5, offsetY + .5, drawWidth, drawHeight);
-
-  updateStatus();
+function getBaseCell(){
+  const pad=70;
+  return Math.max(1,Math.min((canvas.width-pad*2)/pattern.grid.width,(canvas.height-pad*2)/pattern.grid.height));
+}
+function getLayout(){
+  const cell=getBaseCell()*view.zoom,drawWidth=cell*pattern.grid.width,drawHeight=cell*pattern.grid.height;
+  return{cell,offsetX:(canvas.width-drawWidth)/2+view.panX,offsetY:(canvas.height-drawHeight)/2+view.panY,drawWidth,drawHeight};
 }
 
-function drawGrid({ cell, offsetX, offsetY, startX, startY, endX, endY }) {
-  ctx.strokeStyle = cell >= 18 ? 'rgba(0,0,0,.16)' : 'rgba(0,0,0,.09)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
+function render(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#f7f7f5';ctx.fillRect(0,0,canvas.width,canvas.height);
+  const L=getLayout(),sx=clamp(Math.floor(-L.offsetX/L.cell),0,pattern.grid.width),sy=clamp(Math.floor(-L.offsetY/L.cell),0,pattern.grid.height),ex=clamp(Math.ceil((canvas.width-L.offsetX)/L.cell),0,pattern.grid.width),ey=clamp(Math.ceil((canvas.height-L.offsetY)/L.cell),0,pattern.grid.height);
+  ctx.fillStyle='#fff';ctx.fillRect(L.offsetX,L.offsetY,L.drawWidth,L.drawHeight);
 
-  for (let x = startX; x <= endX; x += 1) {
-    const px = Math.round(offsetX + x * cell) + .5;
-    ctx.moveTo(px, Math.max(0, offsetY + startY * cell));
-    ctx.lineTo(px, Math.min(canvas.height, offsetY + endY * cell));
+  for(let y=sy;y<ey;y++)for(let x=sx;x<ex;x++){
+    const pi=pattern.grid.cells[y*pattern.grid.width+x],c=pattern.palette[pi]?.rgb??[255,0,255];
+    drawTechniqueCell(ctx,pattern.techniqueId,{x:L.offsetX+x*L.cell,y:L.offsetY+y*L.cell,width:L.cell,height:L.cell},c,pi,renderOptions);
   }
 
-  for (let y = startY; y <= endY; y += 1) {
-    const py = Math.round(offsetY + y * cell) + .5;
-    ctx.moveTo(Math.max(0, offsetX + startX * cell), py);
-    ctx.lineTo(Math.min(canvas.width, offsetX + endX * cell), py);
-  }
+  if(L.cell>=7&&pattern.techniqueId!=='bead-loom')drawGrid(L,sx,sy,ex,ey);
+  drawGuides(L);drawTracker(L);drawCoordinates(L);
+  ctx.strokeStyle='rgba(0,0,0,.32)';ctx.strokeRect(L.offsetX+.5,L.offsetY+.5,L.drawWidth,L.drawHeight);
+  updateStatus();renderPatternViewer();updateProjectMeta();
+}
 
+function drawGrid(L,sx,sy,ex,ey){
+  ctx.strokeStyle=L.cell>=18?'rgba(0,0,0,.14)':'rgba(0,0,0,.07)';ctx.lineWidth=1;ctx.beginPath();
+  for(let x=sx;x<=ex;x++){const px=Math.round(L.offsetX+x*L.cell)+.5;ctx.moveTo(px,L.offsetY+sy*L.cell);ctx.lineTo(px,L.offsetY+ey*L.cell)}
+  for(let y=sy;y<=ey;y++){const py=Math.round(L.offsetY+y*L.cell)+.5;ctx.moveTo(L.offsetX+sx*L.cell,py);ctx.lineTo(L.offsetX+ex*L.cell,py)}
   ctx.stroke();
 }
 
-function eventToCell(event) {
-  const point = pointerToCanvas(event);
-  const layout = getLayout();
-  const x = Math.floor((point.x - layout.offsetX) / layout.cell);
-  const y = Math.floor((point.y - layout.offsetY) / layout.cell);
-  return x >= 0 && y >= 0 && x < pattern.grid.width && y < pattern.grid.height ? { x, y } : null;
+function drawGuides(L){
+  if(!renderOptions.showGuides)return;
+  const n=Math.max(2,renderOptions.guideSpacing);ctx.strokeStyle='rgba(40,75,120,.35)';ctx.lineWidth=1.5;ctx.beginPath();
+  for(let x=n;x<pattern.grid.width;x+=n){const px=L.offsetX+x*L.cell;ctx.moveTo(px,L.offsetY);ctx.lineTo(px,L.offsetY+L.drawHeight)}
+  for(let y=n;y<pattern.grid.height;y+=n){const py=L.offsetY+y*L.cell;ctx.moveTo(L.offsetX,py);ctx.lineTo(L.offsetX+L.drawWidth,py)}
+  ctx.stroke();
 }
 
-function pointerToCanvas(event) {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: (event.clientX - rect.left) * canvas.width / rect.width,
-    y: (event.clientY - rect.top) * canvas.height / rect.height
-  };
+function drawCoordinates(L){
+  if(!renderOptions.showCoordinates||L.cell<5)return;
+  const n=Math.max(2,renderOptions.guideSpacing);ctx.fillStyle='#666';ctx.font='11px system-ui';ctx.textAlign='center';ctx.textBaseline='bottom';
+  for(let x=0;x<pattern.grid.width;x+=n)ctx.fillText(String(x+1),L.offsetX+(x+.5)*L.cell,L.offsetY-5);
+  ctx.textAlign='right';ctx.textBaseline='middle';
+  for(let y=0;y<pattern.grid.height;y+=n)ctx.fillText(String(y+1),L.offsetX-6,L.offsetY+(y+.5)*L.cell);
 }
 
-function updateStatus() {
-  const toolNames = { pencil: 'Pincel', eraser: 'Borrador', fill: 'Relleno', pan: 'Mover' };
-  const size = activeTool === 'pencil' ? ` · ${brushSize}×${brushSize}`
-    : activeTool === 'eraser' ? ` · ${eraserSize}×${eraserSize}` : '';
-
-  statusEl.textContent = `${pattern.grid.width}×${pattern.grid.height} · ${pattern.palette.length} colores · ${toolNames[activeTool]}${size} · ${Math.round(view.zoom * 100)}%`;
-  document.querySelector('#resetView').textContent = `${Math.round(view.zoom * 100)}%`;
+function drawTracker(L){
+  if(!renderOptions.trackMode){$('#trackLabel').textContent='Fila 1';return}
+  renderOptions.trackIndex=clamp(renderOptions.trackIndex,0,pattern.grid.height-1);
+  const y=L.offsetY+renderOptions.trackIndex*L.cell;
+  ctx.fillStyle='rgba(255,210,60,.18)';ctx.fillRect(L.offsetX,y,L.drawWidth,L.cell);
+  ctx.strokeStyle='rgba(200,145,0,.7)';ctx.lineWidth=2;ctx.strokeRect(L.offsetX,y,L.drawWidth,L.cell);
+  $('#trackLabel').textContent=`Fila \${renderOptions.trackIndex+1}/\${pattern.grid.height}`;
 }
 
-function savePattern() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pattern));
-    saveStatusEl.textContent = 'Guardado local';
-  } catch {
-    saveStatusEl.textContent = 'No se pudo guardar localmente';
+function renderPatternViewer(){
+  viewerCtx.clearRect(0,0,patternViewer.width,patternViewer.height);
+  viewerCtx.fillStyle='#fff';viewerCtx.fillRect(0,0,patternViewer.width,patternViewer.height);
+  const pad=8,cell=Math.min((patternViewer.width-pad*2)/pattern.grid.width,(patternViewer.height-pad*2)/pattern.grid.height);
+  const ox=(patternViewer.width-cell*pattern.grid.width)/2,oy=(patternViewer.height-cell*pattern.grid.height)/2;
+  for(let y=0;y<pattern.grid.height;y++)for(let x=0;x<pattern.grid.width;x++){
+    const c=pattern.palette[pattern.grid.cells[y*pattern.grid.width+x]]?.rgb??[255,0,255];
+    viewerCtx.fillStyle=`rgb(\${c.join(',')})`;
+    viewerCtx.fillRect(ox+x*cell,oy+y*cell,Math.ceil(cell),Math.ceil(cell));
   }
+  viewerCtx.strokeStyle='rgba(0,0,0,.35)';
+  viewerCtx.strokeRect(ox+.5,oy+.5,cell*pattern.grid.width,cell*pattern.grid.height);
 }
 
-function loadPattern() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const candidate = JSON.parse(raw);
-    return validatePattern(candidate).length === 0 ? candidate : null;
-  } catch {
-    return null;
-  }
+function updateProjectMeta(){
+  const s=estimateTechniqueSize(pattern.techniqueId,pattern.grid,renderOptions);
+  projectMetaEl.textContent=s
+    ? `\${pattern.grid.width}×\${pattern.grid.height} cuentas · aprox. \${s.widthMm.toFixed(1)} × \${s.heightMm.toFixed(1)} mm · \${s.label}`
+    : `\${pattern.grid.width}×\${pattern.grid.height} · \${pattern.grid.cells.length.toLocaleString()} celdas`;
 }
 
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
+function eventToCell(e){
+  const p=pointerToCanvas(e),L=getLayout(),x=Math.floor((p.x-L.offsetX)/L.cell),y=Math.floor((p.y-L.offsetY)/L.cell);
+  return x>=0&&y>=0&&x<pattern.grid.width&&y<pattern.grid.height?{x,y}:null;
 }
-
-function hexToRgb(hex) {
-  const value = hex.replace('#', '');
-  return [
-    parseInt(value.slice(0, 2), 16),
-    parseInt(value.slice(2, 4), 16),
-    parseInt(value.slice(4, 6), 16)
-  ];
+function pointerToCanvas(e){
+  const r=canvas.getBoundingClientRect();
+  return{x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height};
 }
-
-function rgbToHex([r, g, b]) {
-  return `#${[r, g, b].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+function updateStatus(){
+  const names={pencil:'Pincel',eraser:'Borrador',fill:'Relleno',pan:'Mover'};
+  const size=activeTool==='pencil'?` · \${brushSize}×\${brushSize}`:activeTool==='eraser'?` · \${eraserSize}×\${eraserSize}`:'';
+  statusEl.textContent=`\${pattern.grid.width}×\${pattern.grid.height} · \${pattern.palette.length} colores · \${names[activeTool]}\${size} · \${Math.round(view.zoom*100)}%\${statusEl.dataset.pointer?' · '+statusEl.dataset.pointer:''}`;
+  $('#resetView').textContent=`\${Math.round(view.zoom*100)}%`;
 }
+function savePattern(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(pattern));saveStatusEl.textContent='Guardado local'}catch{saveStatusEl.textContent='No se pudo guardar'}}
+function loadPattern(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return null;const p=JSON.parse(raw);return validatePattern(p).length?null:p}catch{return null}}
+function loadViewOptions(){try{return{...defaults(),...JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')}}catch{return defaults()}}
+function saveViewOptions(){localStorage.setItem(VIEW_KEY,JSON.stringify(renderOptions))}
+function defaults(){return{showGuides:true,guideSpacing:10,showCoordinates:true,trackMode:false,trackIndex:0,beadProfile:'delica11',beadRender:'realistic',beadHoles:true,beadSymbols:false,crossStyle:'color-symbol',knitStyle:'color-v',c2cDiagonal:true}}
+function clone(v){return JSON.parse(JSON.stringify(v))}
+function hexToRgb(hex){const v=hex.replace('#','');return[parseInt(v.slice(0,2),16),parseInt(v.slice(2,4),16),parseInt(v.slice(4,6),16)]}
+function rgbToHex([r,g,b]){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')}
+function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
+function safeName(v){return(v||'pattern').toLowerCase().replace(/[^a-z0-9-_]+/gi,'-').replace(/^-+|-+$/g,'')||'pattern'}
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function safeName(value) {
-  return (value || 'pattern').toLowerCase().replace(/[^a-z0-9-_]+/gi, '-').replace(/^-+|-+$/g, '') || 'pattern';
-}
-
-canvas.dataset.tool = activeTool;
-brushSizeValue.value = '1×1';
-eraserSizeValue.value = '1×1';
-syncConversionLabels();
-syncPaletteEditor();
-renderPalette();
-renderTechniqueLegend();
-updateHistoryUI();
-render();
-savePattern();
+canvas.dataset.tool=activeTool;
+brushSizeValue.value='1×1';eraserSizeValue.value='1×1';
+syncConversionLabels();syncPaletteEditor();renderPalette();renderTechniqueControls();renderTechniqueLegend();updateHistoryUI();render();savePattern();
