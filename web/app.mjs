@@ -31,8 +31,8 @@ for(const item of listTechniques()){const o=document.createElement('option');o.v
 technique.value=pattern.techniqueId;
 for(const b of document.querySelectorAll('.tool'))b.addEventListener('click',()=>setTool(b.dataset.tool));
 
-brushSizeInput.addEventListener('input',()=>{brushSize=+brushSizeInput.value;brushSizeValue.value=`\${brushSize}×\${brushSize}`;updateStatus()});
-eraserSizeInput.addEventListener('input',()=>{eraserSize=+eraserSizeInput.value;eraserSizeValue.value=`\${eraserSize}×\${eraserSize}`;updateStatus()});
+brushSizeInput.addEventListener('input',()=>{brushSize=+brushSizeInput.value;brushSizeValue.value=`${brushSize}×${brushSize}`;updateStatus()});
+eraserSizeInput.addEventListener('input',()=>{eraserSize=+eraserSizeInput.value;eraserSizeValue.value=`${eraserSize}×${eraserSize}`;updateStatus()});
 
 technique.addEventListener('change',()=>{
   beginMutation('Cambiar técnica');
@@ -49,7 +49,7 @@ imageInput.addEventListener('change',async()=>{
   sourceBitmap?.close?.();
   sourceBitmap=await createImageBitmap(f);
   sourceName=f.name;
-  sourceStatusEl.textContent=`\${f.name} · \${sourceBitmap.width}×\${sourceBitmap.height}`;
+  sourceStatusEl.textContent=`${f.name} · ${sourceBitmap.width}×${sourceBitmap.height}`;
   drawSourcePreview();
   await regeneratePattern('Importar imagen',true);
 });
@@ -71,7 +71,7 @@ $('#clearAll').addEventListener('click',()=>{beginMutation('Limpiar lienzo');pat
 $('#addColor').addEventListener('click',()=>{
   if(pattern.palette.length>=64)return;
   beginMutation('Añadir color');
-  pattern.palette.push({id:`c\${Date.now().toString(36)}`,name:paletteColorInput.value.toUpperCase(),rgb:hexToRgb(paletteColorInput.value)});
+  pattern.palette.push({id:`c${Date.now().toString(36)}`,name:paletteColorInput.value.toUpperCase(),rgb:hexToRgb(paletteColorInput.value)});
   activeColor=pattern.palette.length-1;
   commitMutation();renderPalette();renderTechniqueLegend();render();
 });
@@ -91,7 +91,7 @@ $('#showCoordinates').checked=renderOptions.showCoordinates;
 $('#trackMode').checked=renderOptions.trackMode;
 
 for(const id of ['showGuides','showCoordinates','trackMode']){
-  $(`#\${id}`).addEventListener('change',e=>{renderOptions[id]=e.target.checked;saveViewOptions();render()});
+  $(`#${id}`).addEventListener('change',e=>{renderOptions[id]=e.target.checked;saveViewOptions();render()});
 }
 $('#guideSpacing').addEventListener('change',e=>{
   renderOptions.guideSpacing=Math.max(2,Math.min(50,+e.target.value||10));
@@ -103,7 +103,7 @@ $('#trackNext').addEventListener('click',()=>{renderOptions.trackIndex=Math.min(
 $('#download').addEventListener('click',()=>{
   const blob=new Blob([JSON.stringify(pattern,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download=`\${safeName(pattern.title)}.openpattern.json`;a.click();URL.revokeObjectURL(url);
+  a.href=url;a.download=`${safeName(pattern.title)}.openpattern.json`;a.click();URL.revokeObjectURL(url);
 });
 
 canvas.addEventListener('wheel',e=>{
@@ -134,7 +134,7 @@ canvas.addEventListener('pointerdown',e=>{
 
 canvas.addEventListener('pointermove',e=>{
   const hover=eventToCell(e);
-  if(hover)statusEl.dataset.pointer=`\${hover.x+1},\${hover.y+1}`;
+  if(hover)statusEl.dataset.pointer=`${hover.x+1},${hover.y+1}`;
   if(!gesture||gesture.pointerId!==e.pointerId){updateStatus();return}
   if(gesture.type==='pan'){
     const r=canvas.getBoundingClientRect();
@@ -181,7 +181,7 @@ async function regeneratePattern(label='Regenerar diseño',resetView=false){
   if(resetView)view={zoom:1,panX:0,panY:0};
   commitMutation();
   syncPaletteEditor();renderPalette();renderTechniqueLegend();renderTechniqueControls();render();
-  sourceStatusEl.textContent=`\${sourceName} → \${width}×\${height} · \${converted.palette.length} colores`;
+  sourceStatusEl.textContent=`${sourceName} → ${width}×${height} · ${converted.palette.length} colores`;
 }
 
 function scheduleRegenerate(){
@@ -201,7 +201,7 @@ function drawSourcePreview(){
 
 function syncConversionLabels(){
   for(const [id,el] of [['lightThreshold',lightThresholdInput],['brightness',brightnessInput],['contrast',contrastInput],['saturation',saturationInput]]){
-    $(`#\${id}Value`).value=el.value;
+    $(`#${id}Value`).value=el.value;
   }
 }
 
@@ -251,7 +251,7 @@ function afterPatternRestore(){
 }
 function updateHistoryUI(){
   undoButton.disabled=!undoStack.length;redoButton.disabled=!redoStack.length;
-  historyMetaEl.textContent=`\${undoStack.length} cambios · \${redoStack.length} para rehacer`;
+  historyMetaEl.textContent=`${undoStack.length} cambios · ${redoStack.length} para rehacer`;
   historyEl.replaceChildren();
   undoStack.slice(-8).reverse().forEach((e,i)=>{const b=document.createElement('button');b.textContent=e.label;b.addEventListener('click',()=>undoSteps(i+1));historyEl.append(b)});
 }
@@ -259,7 +259,7 @@ function updateHistoryUI(){
 function renderPalette(){
   paletteEl.replaceChildren();
   pattern.palette.forEach((c,i)=>{
-    const b=document.createElement('button');b.className=`swatch\${i===activeColor?' active':''}`;b.style.background=`rgb(\${c.rgb.join(',')})`;b.title=`\${i+1}. \${c.name}`;
+    const b=document.createElement('button');b.className=`swatch${i===activeColor?' active':''}`;b.style.background=`rgb(${c.rgb.join(',')})`;b.title=`${i+1}. ${c.name}`;
     b.addEventListener('click',()=>{activeColor=i;if(activeTool==='eraser')setTool('pencil');syncPaletteEditor();renderPalette();updateStatus()});
     paletteEl.append(b);
   });
@@ -272,7 +272,7 @@ function renderTechniqueLegend(){
   pattern.palette.forEach((c,i)=>{
     const m=techniqueLegendMeta(pattern.techniqueId,i,renderOptions),row=document.createElement('div');
     row.className='legend-row';
-    row.innerHTML=`<span class="legend-chip" style="background:rgb(\${c.rgb.join(',')})"></span><span class="legend-symbol">\${m.symbol}</span><span class="legend-details"><span>\${c.name}</span><small>\${m.catalog}</small></span><span class="legend-count">\${counts[i]} \${m.unit}</span>`;
+    row.innerHTML=`<span class="legend-chip" style="background:rgb(${c.rgb.join(',')})"></span><span class="legend-symbol">${m.symbol}</span><span class="legend-details"><span>${c.name}</span><small>${m.catalog}</small></span><span class="legend-count">${counts[i]} ${m.unit}</span>`;
     techniqueLegendEl.append(row);
   });
 }
@@ -380,7 +380,7 @@ function drawTracker(L){
   const y=L.offsetY+renderOptions.trackIndex*L.cell;
   ctx.fillStyle='rgba(255,210,60,.18)';ctx.fillRect(L.offsetX,y,L.drawWidth,L.cell);
   ctx.strokeStyle='rgba(200,145,0,.7)';ctx.lineWidth=2;ctx.strokeRect(L.offsetX,y,L.drawWidth,L.cell);
-  $('#trackLabel').textContent=`Fila \${renderOptions.trackIndex+1}/\${pattern.grid.height}`;
+  $('#trackLabel').textContent=`Fila ${renderOptions.trackIndex+1}/${pattern.grid.height}`;
 }
 
 function renderPatternViewer(){
@@ -390,7 +390,7 @@ function renderPatternViewer(){
   const ox=(patternViewer.width-cell*pattern.grid.width)/2,oy=(patternViewer.height-cell*pattern.grid.height)/2;
   for(let y=0;y<pattern.grid.height;y++)for(let x=0;x<pattern.grid.width;x++){
     const c=pattern.palette[pattern.grid.cells[y*pattern.grid.width+x]]?.rgb??[255,0,255];
-    viewerCtx.fillStyle=`rgb(\${c.join(',')})`;
+    viewerCtx.fillStyle=`rgb(${c.join(',')})`;
     viewerCtx.fillRect(ox+x*cell,oy+y*cell,Math.ceil(cell),Math.ceil(cell));
   }
   viewerCtx.strokeStyle='rgba(0,0,0,.35)';
@@ -400,8 +400,8 @@ function renderPatternViewer(){
 function updateProjectMeta(){
   const s=estimateTechniqueSize(pattern.techniqueId,pattern.grid,renderOptions);
   projectMetaEl.textContent=s
-    ? `\${pattern.grid.width}×\${pattern.grid.height} cuentas · aprox. \${s.widthMm.toFixed(1)} × \${s.heightMm.toFixed(1)} mm · \${s.label}`
-    : `\${pattern.grid.width}×\${pattern.grid.height} · \${pattern.grid.cells.length.toLocaleString()} celdas`;
+    ? `${pattern.grid.width}×${pattern.grid.height} cuentas · aprox. ${s.widthMm.toFixed(1)} × ${s.heightMm.toFixed(1)} mm · ${s.label}`
+    : `${pattern.grid.width}×${pattern.grid.height} · ${pattern.grid.cells.length.toLocaleString()} celdas`;
 }
 
 function eventToCell(e){
@@ -414,9 +414,9 @@ function pointerToCanvas(e){
 }
 function updateStatus(){
   const names={pencil:'Pincel',eraser:'Borrador',fill:'Relleno',pan:'Mover'};
-  const size=activeTool==='pencil'?` · \${brushSize}×\${brushSize}`:activeTool==='eraser'?` · \${eraserSize}×\${eraserSize}`:'';
-  statusEl.textContent=`\${pattern.grid.width}×\${pattern.grid.height} · \${pattern.palette.length} colores · \${names[activeTool]}\${size} · \${Math.round(view.zoom*100)}%\${statusEl.dataset.pointer?' · '+statusEl.dataset.pointer:''}`;
-  $('#resetView').textContent=`\${Math.round(view.zoom*100)}%`;
+  const size=activeTool==='pencil'?` · ${brushSize}×${brushSize}`:activeTool==='eraser'?` · ${eraserSize}×${eraserSize}`:'';
+  statusEl.textContent=`${pattern.grid.width}×${pattern.grid.height} · ${pattern.palette.length} colores · ${names[activeTool]}${size} · ${Math.round(view.zoom*100)}%${statusEl.dataset.pointer?' · '+statusEl.dataset.pointer:''}`;
+  $('#resetView').textContent=`${Math.round(view.zoom*100)}%`;
 }
 function savePattern(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(pattern));saveStatusEl.textContent='Guardado local'}catch{saveStatusEl.textContent='No se pudo guardar'}}
 function loadPattern(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return null;const p=JSON.parse(raw);return validatePattern(p).length?null:p}catch{return null}}
