@@ -26,7 +26,9 @@ const paletteEl=$('#palette'),paletteColorInput=$('#paletteColor'),techniqueLege
 const statusEl=$('#status'),sourceStatusEl=$('#sourceStatus'),saveStatusEl=$('#saveStatus'),projectMetaEl=$('#projectMeta');
 const undoButton=$('#undo'),redoButton=$('#redo'),historyEl=$('#history'),historyMetaEl=$('#historyMeta');
 const brushSizeInput=$('#brushSize'),eraserSizeInput=$('#eraserSize'),brushSizeValue=$('#brushSizeValue'),eraserSizeValue=$('#eraserSizeValue');
-const conversionPanel=document.querySelector('.conversion');
+const conversionPanel=$('#imageConversionPanel');
+const techniqueNameEl=$('#techniqueName'),techniqueSourceModeEl=$('#techniqueSourceMode'),techniqueSourceHelpEl=$('#techniqueSourceHelp');
+const rightPanel=document.querySelector('.right-panel');
 
 let pattern=loadPattern()??createPattern({techniqueId:'tapestry-crochet',width:32,height:24});
 let sourceBitmap=null,sourceName='',activeColor=Math.min(1,pattern.palette.length-1),activeTool='pencil',brushSize=1,eraserSize=1;
@@ -35,7 +37,22 @@ let view={zoom:1,panX:0,panY:0};
 let renderOptions=loadViewOptions();
 let lastGeometryProjection=[];
 
-for(const item of listTechniques()){const o=document.createElement('option');o.value=item.id;o.textContent=item.name;technique.append(o)}
+{
+  const groups=new Map();
+  for(const item of listTechniques()){
+    const group=item.group||'Other';
+    if(!groups.has(group)){
+      const optgroup=document.createElement('optgroup');
+      optgroup.label=group;
+      groups.set(group,optgroup);
+      technique.append(optgroup);
+    }
+    const o=document.createElement('option');
+    o.value=item.id;
+    o.textContent=item.name;
+    groups.get(group).append(o);
+  }
+}
 technique.value=pattern.techniqueId;
 for(const b of document.querySelectorAll('.tool'))b.addEventListener('click',()=>setTool(b.dataset.tool));
 
@@ -49,6 +66,7 @@ technique.addEventListener('change',()=>{
   if(isStructuredCrochetTechnique(pattern.techniqueId)) ensureCrochetState();
   commitMutation();
   updateSourcePanelVisibility();
+  if(rightPanel) rightPanel.scrollTop=0;
   renderTechniqueControls();
   renderTechniqueLegend();
   render();
@@ -262,11 +280,32 @@ function currentTechnique(){
 }
 
 function updateSourcePanelVisibility(){
-  const mode=currentTechnique()?.sourceMode??'manual';
-  if(conversionPanel){
-    conversionPanel.classList.toggle('hidden',mode!=='image-grid');
-    const title=conversionPanel.querySelector('.section-title');
-    if(title)title.textContent='Conversión desde imagen · opcional';
+  const def=currentTechnique();
+  const mode=def?.sourceMode??'manual';
+
+  if(conversionPanel) conversionPanel.classList.toggle('hidden',mode!=='image-grid');
+
+  if(techniqueNameEl) techniqueNameEl.textContent=def?.name??pattern.techniqueId;
+  if(techniqueSourceModeEl){
+    const labels={
+      'image-grid':'Imagen / grid',
+      'geometry':'Geometría',
+      'parametric':'Paramétrico',
+      'sequence':'Secuencia',
+      'manual':'Manual'
+    };
+    techniqueSourceModeEl.textContent=labels[mode]??mode;
+    techniqueSourceModeEl.dataset.mode=mode;
+  }
+  if(techniqueSourceHelpEl){
+    const help={
+      'image-grid':'La imagen puede convertirse directamente al patrón y regenerarse con sus propios ajustes.',
+      'geometry':'La forma la define el motor de la técnica. La imagen no modifica la geometría.',
+      'parametric':'El patrón se construye con parámetros propios de la técnica, no a partir de píxeles.',
+      'sequence':'La construcción depende de vueltas, filas, aumentos y disminuciones.',
+      'manual':'Edición manual con herramientas específicas.'
+    };
+    techniqueSourceHelpEl.textContent=help[mode]??'';
   }
 }
 
@@ -887,4 +926,4 @@ function safeName(v){return(v||'pattern').toLowerCase().replace(/[^a-z0-9-_]+/gi
 
 canvas.dataset.tool=activeTool;
 brushSizeValue.value='1×1';eraserSizeValue.value='1×1';
-syncConversionLabels();syncPaletteEditor();renderPalette();updateSourcePanelVisibility();renderTechniqueControls();renderTechniqueLegend();updateHistoryUI();render();savePattern();
+syncConversionLabels();syncPaletteEditor();renderPalette();updateSourcePanelVisibility();if(rightPanel)rightPanel.scrollTop=0;renderTechniqueControls();renderTechniqueLegend();updateHistoryUI();render();savePattern();
