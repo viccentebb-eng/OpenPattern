@@ -20,6 +20,9 @@ Pattern Core, Grid Engine, schema v1, Technique Registry y pruebas.
 - guías y coordenadas;
 - modo seguimiento por fila;
 - inspector específico por técnica;
+- Geometry Engine experimental para Flat Peyote, Peyote Star y Rosette/Mandala;
+- node-based bead layouts con recorrido de hilo, numeración y pintura directa;
+- Flat Peyote con stagger real inspirado en peyote-pattern (Apache-2.0);
 - bead renderer plano/realista;
 - perfiles Miyuki Delica 11/0, Miyuki Round 11/0, TOHO Round 11/0 y TOHO Aiko 11/0;
 - hueco y símbolos opcionales sobre beads;
