@@ -289,6 +289,7 @@ function updateSourcePanelVisibility(){
   const mode=def?.sourceMode??'manual';
 
   if(conversionPanel) conversionPanel.classList.toggle('hidden',mode!=='image-grid');
+  if(crochetStudioPanel) crochetStudioPanel.classList.toggle('hidden',pattern.techniqueId!=='crochet-round-chart');
 
   if(techniqueNameEl) techniqueNameEl.textContent=def?.name??pattern.techniqueId;
   if(techniqueSourceModeEl){
@@ -312,6 +313,109 @@ function updateSourcePanelVisibility(){
     };
     techniqueSourceHelpEl.textContent=help[mode]??'';
   }
+}
+
+function setupCrochetStudio(){
+  if(!crochetSymbolPalette)return;
+  crochetSymbolPalette.replaceChildren();
+
+  for(const symbol of Object.values(CROCHET_SYMBOLS)){
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='crochet-symbol-button'+(symbol.id===crochetStitch?' active':'');
+    b.dataset.stitch=symbol.id;
+    b.title=symbol.label;
+    const glyph=document.createElement('span');
+    glyph.className='glyph';
+    glyph.textContent=symbol.short;
+    const label=document.createElement('small');
+    label.textContent=symbol.label.split('/')[0].trim();
+    b.append(glyph,label);
+    b.addEventListener('click',()=>{
+      crochetStitch=symbol.id;
+      setCrochetTool('place');
+      updateCrochetStudioUI();
+    });
+    crochetSymbolPalette.append(b);
+  }
+
+  for(const b of document.querySelectorAll('.crochet-tool')){
+    b.addEventListener('click',()=>setCrochetTool(b.dataset.crochetTool));
+  }
+
+  $('#crochetRotateLeft')?.addEventListener('click',()=>rotateSelectedCrochet(-15));
+  $('#crochetRotateRight')?.addEventListener('click',()=>rotateSelectedCrochet(15));
+  $('#crochetDuplicate')?.addEventListener('click',duplicateSelectedCrochet);
+  $('#crochetDeleteSelected')?.addEventListener('click',deleteSelectedCrochet);
+  updateCrochetStudioUI();
+}
+
+function setCrochetTool(tool){
+  crochetTool=tool;
+  if(tool!=='connect')crochetConnectFrom=null;
+  for(const b of document.querySelectorAll('.crochet-tool'))b.classList.toggle('active',b.dataset.crochetTool===tool);
+  canvas.dataset.crochetTool=tool;
+  updateCrochetStudioUI();
+  render();
+}
+
+function selectedCrochetNode(){
+  return currentCrochetChart()?.nodes?.find(n=>n.id===crochetSelectedId)??null;
+}
+
+function updateCrochetStudioUI(){
+  for(const b of document.querySelectorAll('.crochet-symbol-button')){
+    b.classList.toggle('active',b.dataset.stitch===crochetStitch);
+  }
+  if(!crochetSelectionInfo)return;
+  const node=selectedCrochetNode();
+  if(node){
+    const symbol=CROCHET_SYMBOLS[node.type];
+    crochetSelectionInfo.textContent=`${symbol?.label??node.type} · ${node.round?`vuelta ${node.round}`:'libre'} · rotación ${Math.round((node.rotation??0)*180/Math.PI)}°`;
+  }else if(crochetConnectFrom){
+    crochetSelectionInfo.textContent='Conectar: selecciona la puntada de destino.';
+  }else{
+    crochetSelectionInfo.textContent=`Herramienta: ${crochetTool} · puntada: ${CROCHET_SYMBOLS[crochetStitch]?.label??crochetStitch}`;
+  }
+}
+
+function rotateSelectedCrochet(degrees){
+  const node=selectedCrochetNode();if(!node)return;
+  beginMutation('Rotar puntada');
+  updateCrochetNode(currentCrochetChart(),node.id,{rotation:(node.rotation??0)+degrees*Math.PI/180});
+  commitMutation();updateCrochetStudioUI();render();
+}
+
+function duplicateSelectedCrochet(){
+  const node=selectedCrochetNode();if(!node)return;
+  beginMutation('Duplicar puntada');
+  const copy=addCrochetNode(currentCrochetChart(),{
+    ...node,
+    id:undefined,
+    x:node.x+.35,
+    y:node.y+.35,
+    colorIndex:node.colorIndex
+  });
+  crochetSelectedId=copy.id;
+  commitMutation();renderTechniqueControls();updateCrochetStudioUI();render();
+}
+
+function deleteSelectedCrochet(){
+  if(!crochetSelectedId)return;
+  beginMutation('Eliminar puntada');
+  removeCrochetNode(currentCrochetChart(),crochetSelectedId);
+  crochetSelectedId=null;crochetConnectFrom=null;
+  commitMutation();renderTechniqueControls();updateCrochetStudioUI();render();
+}
+
+function eventToCrochetNode(e){
+  const p=pointerToCanvas(e);
+  return hitTestCrochetChart(lastCrochetProjection,p.x,p.y);
+}
+
+function eventToCrochetModel(e){
+  const p=pointerToCanvas(e);
+  return screenToCrochetModel(currentCrochetChart(),canvas.width,canvas.height,view,p.x,p.y);
 }
 
 
