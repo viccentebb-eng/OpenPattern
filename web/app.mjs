@@ -40,6 +40,7 @@ eraserSizeInput.addEventListener('input',()=>{eraserSize=+eraserSizeInput.value;
 technique.addEventListener('change',()=>{
   beginMutation('Cambiar técnica');
   pattern.techniqueId=technique.value;
+  if(isGeometryTechnique(pattern.techniqueId)) ensureGeometryState();
   commitMutation();
   renderTechniqueControls();
   renderTechniqueLegend();
