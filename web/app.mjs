@@ -807,6 +807,16 @@ function renderPatternViewer(){
 }
 
 function updateProjectMeta(){
+  if(isStructuredCrochetTechnique(pattern.techniqueId)){
+    const data=currentCrochetData();
+    if(pattern.techniqueId==='amigurumi'){
+      projectMetaEl.textContent=`${data.shape} · ${data.rounds.length} vueltas · ${data.meta.totalStitches.toLocaleString()} puntadas estimadas`;
+    }else{
+      const last=data.rounds[data.rounds.length-1];
+      projectMetaEl.textContent=`Chart radial · ${data.rounds.length} vueltas · ${last?.count??0} puntadas en la última vuelta`;
+    }
+    return;
+  }
   if(isGeometryTechnique(pattern.techniqueId)){
     const layout=currentGeometryLayout();
     const profile=BEAD_PROFILES[renderOptions.beadProfile]??BEAD_PROFILES.delica11;
@@ -831,9 +841,13 @@ function pointerToCanvas(e){
 function updateStatus(){
   const names={pencil:'Pincel',eraser:'Borrador',fill:'Relleno',pan:'Mover'};
   const size=activeTool==='pencil'?` · ${brushSize}×${brushSize}`:activeTool==='eraser'?` · ${eraserSize}×${eraserSize}`:'';
-  const base=isGeometryTechnique(pattern.techniqueId)
-    ? `${currentGeometryLayout().nodes.length} cuentas`
-    : `${pattern.grid.width}×${pattern.grid.height}`;
+  const base=isStructuredCrochetTechnique(pattern.techniqueId)
+    ? (pattern.techniqueId==='amigurumi'
+      ? `${currentCrochetData().rounds.length} vueltas`
+      : `${currentCrochetData().rounds.length} vueltas radiales`)
+    : (isGeometryTechnique(pattern.techniqueId)
+      ? `${currentGeometryLayout().nodes.length} cuentas`
+      : `${pattern.grid.width}×${pattern.grid.height}`);
   statusEl.textContent=`${base} · ${pattern.palette.length} colores · ${names[activeTool]}${size} · ${Math.round(view.zoom*100)}%${statusEl.dataset.pointer?' · '+statusEl.dataset.pointer:''}`;
   $('#resetView').textContent=`${Math.round(view.zoom*100)}%`;
 }
@@ -841,7 +855,7 @@ function savePattern(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(patte
 function loadPattern(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return null;const p=JSON.parse(raw);return validatePattern(p).length?null:p}catch{return null}}
 function loadViewOptions(){try{return{...defaults(),...JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')}}catch{return defaults()}}
 function saveViewOptions(){localStorage.setItem(VIEW_KEY,JSON.stringify(renderOptions))}
-function defaults(){return{showGuides:true,guideSpacing:10,showCoordinates:true,trackMode:false,trackIndex:0,beadProfile:'delica11',beadRender:'realistic',beadHoles:true,beadSymbols:false,crossStyle:'color-symbol',knitStyle:'color-v',c2cDiagonal:true,geometryShowPath:true,geometryShowNumbers:false,starArms:5,starLevels:13,starBaseWidth:9,rosetteRings:5,rosetteBaseCount:6,ropeView:'draft',ropeRotation:0}}
+function defaults(){return{showGuides:true,guideSpacing:10,showCoordinates:true,trackMode:false,trackIndex:0,beadProfile:'delica11',beadRender:'realistic',beadHoles:true,beadSymbols:false,crossStyle:'color-symbol',knitStyle:'color-v',c2cDiagonal:true,geometryShowPath:true,geometryShowNumbers:false,starArms:5,starLevels:13,starBaseWidth:9,rosetteRings:5,rosetteBaseCount:6,ropeView:'draft',ropeRotation:0,radialRounds:6,radialStartCount:6,radialGrowth:6,radialStitch:'sc',radialDirection:'cw',radialRotateSymbols:true,amigurumiShape:'sphere',amigurumiStartCount:6,amigurumiMaxStitches:36,amigurumiBodyRounds:8}}
 function clone(v){return JSON.parse(JSON.stringify(v))}
 function hexToRgb(hex){const v=hex.replace('#','');return[parseInt(v.slice(0,2),16),parseInt(v.slice(2,4),16),parseInt(v.slice(4,6),16)]}
 function rgbToHex([r,g,b]){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')}
@@ -850,4 +864,4 @@ function safeName(v){return(v||'pattern').toLowerCase().replace(/[^a-z0-9-_]+/gi
 
 canvas.dataset.tool=activeTool;
 brushSizeValue.value='1×1';eraserSizeValue.value='1×1';
-syncConversionLabels();syncPaletteEditor();renderPalette();renderTechniqueControls();renderTechniqueLegend();updateHistoryUI();render();savePattern();
+syncConversionLabels();syncPaletteEditor();renderPalette();updateSourcePanelVisibility();renderTechniqueControls();renderTechniqueLegend();updateHistoryUI();render();savePattern();
