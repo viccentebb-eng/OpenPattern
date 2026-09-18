@@ -44,7 +44,10 @@ export function drawBeadLayout(ctx, layout, palette, options = {}, view = { zoom
   }
 
   const profile = getBeadProfile(options.beadProfile || 'delica11');
-  for (const node of projected) {
+  const paintOrder = layout.meta?.view === 'rope'
+    ? [...projected].sort((a,b) => (a.depth ?? 0) - (b.depth ?? 0))
+    : projected;
+  for (const node of paintOrder) {
     const rawColorIndex = resolveColorIndex(node, options);
     const colorIndex = palette.length ? ((rawColorIndex % palette.length) + palette.length) % palette.length : 0;
     const rgb = palette[colorIndex]?.rgb ?? [210, 210, 210];
