@@ -371,7 +371,32 @@ function renderTechniqueControls(){
   techniqueOptionsEl.replaceChildren();
   const note=t=>{const d=document.createElement('div');d.className='technique-note';d.textContent=t;techniqueOptionsEl.append(d)};
 
-  if(pattern.techniqueId==='bead-loom'){
+  if(isGeometryTechnique(pattern.techniqueId)){
+    const profile=document.createElement('label');
+    profile.innerHTML='Tipo de cuenta<select id="geometryBeadProfile"></select>';
+    techniqueOptionsEl.append(profile);
+    const select=profile.querySelector('select');
+    for(const p of Object.values(BEAD_PROFILES)){const o=document.createElement('option');o.value=p.id;o.textContent=p.label;select.append(o)}
+    select.value=renderOptions.beadProfile;
+    select.addEventListener('change',e=>{renderOptions.beadProfile=e.target.value;saveViewOptions();renderTechniqueLegend();render()});
+    addSelectControl('Acabado visual','beadRender',[['realistic','Realista'],['simple','Plano']]);
+    addCheckControl('Mostrar orificio','beadHoles');
+    addCheckControl('Mostrar recorrido del hilo','geometryShowPath');
+    addCheckControl('Numerar cuentas','geometryShowNumbers');
+
+    if(pattern.techniqueId==='peyote-star'){
+      addGeometryNumberControl('Puntas','starArms',3,12);
+      addGeometryNumberControl('Niveles por punta','starLevels',4,32);
+      addGeometryNumberControl('Ancho en la base','starBaseWidth',3,18);
+      note('Generador paramétrico inicial de estrella peyote. Puedes pintar cuentas directamente; el motor conserva colores y recorrido.');
+    }else if(pattern.techniqueId==='bead-rosette'){
+      addGeometryNumberControl('Anillos','rosetteRings',2,10);
+      addGeometryNumberControl('Módulos base','rosetteBaseCount',4,16);
+      note('Roseta radial con cuentas redondas, hoja y lágrima. El thread path es editable visualmente en próximas iteraciones.');
+    }else{
+      note('Flat peyote usa el patrón actual, alterna columnas reales de peyote y conserva el orden de trabajo por filas.');
+    }
+  }else if(pattern.techniqueId==='bead-loom'){
     const profile=document.createElement('label');
     profile.innerHTML='Tipo de cuenta<select id="beadProfile"></select>';
     techniqueOptionsEl.append(profile);
@@ -411,6 +436,19 @@ function addCheckControl(label,key){
   const i=document.createElement('input');i.type='checkbox';i.checked=renderOptions[key]!==false;
   l.append(i,document.createTextNode(label));
   i.addEventListener('change',()=>{renderOptions[key]=i.checked;saveViewOptions();render()});
+  techniqueOptionsEl.append(l);
+}
+
+function addGeometryNumberControl(label,key,min,max){
+  const l=document.createElement('label'),i=document.createElement('input');
+  i.type='number';i.min=String(min);i.max=String(max);i.value=String(renderOptions[key]);
+  l.append(document.createTextNode(label),i);
+  i.addEventListener('change',()=>{
+    const next=Math.max(min,Math.min(max,Math.round(+i.value||renderOptions[key])));
+    beginMutation('Ajustar geometría');
+    renderOptions[key]=next;i.value=String(next);syncGeometryParams();
+    commitMutation();saveViewOptions();renderTechniqueLegend();render();
+  });
   techniqueOptionsEl.append(l);
 }
 
