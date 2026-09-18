@@ -724,7 +724,14 @@ function renderGeometryCanvas(){
   updateStatus();renderPatternViewer();updateProjectMeta();
 }
 
+function renderCrochetCanvas(){
+  lastGeometryProjection=[];
+  drawCrochetTechnique(ctx,pattern.techniqueId,currentCrochetData(),renderOptions,view);
+  updateStatus();renderPatternViewer();updateProjectMeta();
+}
+
 function render(){
+  if(isStructuredCrochetTechnique(pattern.techniqueId)){renderCrochetCanvas();return}
   if(isGeometryTechnique(pattern.techniqueId)){renderGeometryCanvas();return}
   lastGeometryProjection=[];
   ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#f7f7f5';ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -777,6 +784,11 @@ function drawTracker(L){
 function renderPatternViewer(){
   viewerCtx.clearRect(0,0,patternViewer.width,patternViewer.height);
   viewerCtx.fillStyle='#fff';viewerCtx.fillRect(0,0,patternViewer.width,patternViewer.height);
+
+  if(isStructuredCrochetTechnique(pattern.techniqueId)){
+    drawCrochetTechnique(viewerCtx,pattern.techniqueId,currentCrochetData(),renderOptions,{zoom:1,panX:0,panY:0});
+    return;
+  }
 
   if(isGeometryTechnique(pattern.techniqueId)){
     drawBeadLayout(viewerCtx,currentGeometryLayout(),pattern.palette,{...geometryRenderOptions(),geometryShowNumbers:false},{zoom:1,panX:0,panY:0});
