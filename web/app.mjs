@@ -59,6 +59,7 @@ let crochetTool='select',crochetStitch='sc',crochetSelectedId=null,crochetConnec
 }
 technique.value=pattern.techniqueId;
 for(const b of document.querySelectorAll('.tool'))b.addEventListener('click',()=>setTool(b.dataset.tool));
+setupCrochetStudio();
 
 brushSizeInput.addEventListener('input',()=>{brushSize=+brushSizeInput.value;brushSizeValue.value=`${brushSize}×${brushSize}`;updateStatus()});
 eraserSizeInput.addEventListener('input',()=>{eraserSize=+eraserSizeInput.value;eraserSizeValue.value=`${eraserSize}×${eraserSize}`;updateStatus()});
