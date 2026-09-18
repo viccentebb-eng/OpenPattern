@@ -166,7 +166,65 @@ canvas.addEventListener('pointerdown',e=>{
     canvas.classList.add('panning');canvas.setPointerCapture(e.pointerId);return;
   }
 
-  if(isStructuredCrochetTechnique(pattern.techniqueId))return;
+  if(pattern.techniqueId==='crochet-round-chart'){
+    const chart=currentCrochetChart();
+    const hit=eventToCrochetNode(e);
+
+    if(crochetTool==='place'){
+      const raw=eventToCrochetModel(e);
+      const snapped=nearestGuidePoint(chart,raw.x,raw.y,{segments:Math.max(6,renderOptions.crochetGuideSpokes)});
+      beginMutation('Insertar puntada');
+      const node=addCrochetNode(chart,{
+        type:crochetStitch,
+        x:snapped.x,
+        y:snapped.y,
+        round:Number.isFinite(snapped.round)?Math.max(1,Math.round(snapped.round)):null,
+        colorIndex:activeColor,
+        rotation:chart.layout==='radial'?Math.atan2(snapped.y,snapped.x)+Math.PI/2:0
+      });
+      crochetSelectedId=node.id;
+      commitMutation();renderTechniqueControls();updateCrochetStudioUI();render();return;
+    }
+
+    if(crochetTool==='delete'){
+      if(!hit)return;
+      beginMutation('Borrar puntada');
+      removeCrochetNode(chart,hit.id);
+      if(crochetSelectedId===hit.id)crochetSelectedId=null;
+      if(crochetConnectFrom===hit.id)crochetConnectFrom=null;
+      commitMutation();renderTechniqueControls();updateCrochetStudioUI();render();return;
+    }
+
+    if(crochetTool==='connect'){
+      if(!hit)return;
+      if(!crochetConnectFrom){
+        crochetConnectFrom=hit.id;
+        crochetSelectedId=hit.id;
+        updateCrochetStudioUI();render();return;
+      }
+      if(crochetConnectFrom!==hit.id){
+        beginMutation('Conectar puntadas');
+        addCrochetEdge(chart,crochetConnectFrom,hit.id,'thread');
+        crochetSelectedId=hit.id;
+        crochetConnectFrom=null;
+        commitMutation();renderTechniqueControls();updateCrochetStudioUI();render();
+      }
+      return;
+    }
+
+    crochetSelectedId=hit?.id??null;
+    crochetConnectFrom=null;
+    updateCrochetStudioUI();
+    if(hit){
+      beginMutation('Mover puntada');
+      gesture={type:'crochet-drag',pointerId:e.pointerId,nodeId:hit.id};
+      crochetDrag={nodeId:hit.id};
+      canvas.setPointerCapture(e.pointerId);
+    }
+    render();return;
+  }
+
+  if(pattern.techniqueId==='amigurumi')return;
 
   if(isGeometryTechnique(pattern.techniqueId)){
     const node=eventToGeometryNode(e);if(!node)return;
@@ -196,19 +254,37 @@ canvas.addEventListener('pointerdown',e=>{
 });
 
 canvas.addEventListener('pointermove',e=>{
-  const hover=isStructuredCrochetTechnique(pattern.techniqueId)
-    ? null
-    : (isGeometryTechnique(pattern.techniqueId)?eventToGeometryNode(e):eventToCell(e));
+  const hover=pattern.techniqueId==='crochet-round-chart'
+    ? eventToCrochetNode(e)
+    : (isStructuredCrochetTechnique(pattern.techniqueId)
+      ? null
+      : (isGeometryTechnique(pattern.techniqueId)?eventToGeometryNode(e):eventToCell(e)));
+
   if(hover){
-    statusEl.dataset.pointer=isGeometryTechnique(pattern.techniqueId)
-      ? `cuenta ${hover.sequence??hover.index+1}`
-      : `${hover.x+1},${hover.y+1}`;
+    statusEl.dataset.pointer=pattern.techniqueId==='crochet-round-chart'
+      ? `${CROCHET_SYMBOLS[hover.type]?.short??hover.type} ${hover.id}`
+      : (isGeometryTechnique(pattern.techniqueId)
+        ? `cuenta ${hover.sequence??hover.index+1}`
+        : `${hover.x+1},${hover.y+1}`);
   }
+
   if(!gesture||gesture.pointerId!==e.pointerId){updateStatus();return}
   if(gesture.type==='pan'){
     const r=canvas.getBoundingClientRect();
     view.panX=gesture.panX+(e.clientX-gesture.startX)*canvas.width/r.width;
     view.panY=gesture.panY+(e.clientY-gesture.startY)*canvas.height/r.height;
+    render();return;
+  }
+  if(gesture.type==='crochet-drag'){
+    const chart=currentCrochetChart();
+    const raw=eventToCrochetModel(e);
+    const snapped=nearestGuidePoint(chart,raw.x,raw.y,{segments:Math.max(6,renderOptions.crochetGuideSpokes)});
+    moveCrochetNode(chart,gesture.nodeId,snapped.x,snapped.y);
+    const node=chart.nodes.find(n=>n.id===gesture.nodeId);
+    if(node){
+      node.round=Number.isFinite(snapped.round)?Math.max(1,Math.round(snapped.round)):null;
+      if(chart.layout==='radial')node.rotation=Math.atan2(node.y,node.x)+Math.PI/2;
+    }
     render();return;
   }
   if(gesture.type==='geometry-paint'){
@@ -421,9 +497,9 @@ function eventToCrochetModel(e){
 
 function finishGesture(e){
   if(!gesture||gesture.pointerId!==e.pointerId)return;
-  const painting=gesture.type==='paint'||gesture.type==='geometry-paint';gesture=null;lastPaintedCell=null;canvas.classList.remove('panning');
+  const painting=gesture.type==='paint'||gesture.type==='geometry-paint'||gesture.type==='crochet-drag';gesture=null;crochetDrag=null;lastPaintedCell=null;canvas.classList.remove('panning');
   if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);
-  if(painting){commitMutation();renderTechniqueLegend();}
+  if(painting){commitMutation();renderTechniqueLegend();if(pattern.techniqueId==='crochet-round-chart'){renderTechniqueControls();updateCrochetStudioUI();}}
 }
 
 function paintStrokeTo(x,y){
