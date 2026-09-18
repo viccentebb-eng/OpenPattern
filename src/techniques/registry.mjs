@@ -22,6 +22,7 @@ export function listTechniques() {
   ['peyote-flat', 'Peyote flat', ['geometry', 'materials', 'measurements', 'sequence']],
   ['peyote-star', 'Peyote star', ['geometry', 'materials', 'measurements', 'sequence']],
   ['bead-rosette', 'Bead rosette / mandala', ['geometry', 'materials', 'measurements', 'sequence', 'thread-graph']],
+  ['bead-crochet-rope', 'Bead crochet rope', ['geometry', 'materials', 'measurements', 'sequence', 'thread-graph', 'repeat']],
   ['cross-stitch', 'Cross stitch', ['grid', 'materials', 'measurements']],
   ['knitting-colorwork', 'Knitting colorwork', ['grid', 'sequence', 'materials', 'measurements']]
 ].forEach(([id, name, capabilities]) => registerTechnique({ id, name, capabilities }));
