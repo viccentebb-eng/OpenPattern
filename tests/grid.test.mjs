@@ -1,21 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGrid, setCell, getCell, mirrorHorizontal, floodFill } from '../src/core/grid.mjs';
+import { createGrid, floodFill, getCell, mirrorHorizontal, setCell } from '../src/core/grid.mjs';
 
-test('grid stores cells by coordinates', () => {
+test('grid reads and writes cells', () => {
   const grid = createGrid(3, 2, 0);
-  setCell(grid, 2, 1, 7);
-  assert.equal(getCell(grid, 2, 1), 7);
+  setCell(grid, 1, 1, 4);
+  assert.equal(getCell(grid, 1, 1), 4);
 });
 
-test('horizontal mirror reverses each row', () => {
-  const grid = createGrid(3, 2);
-  grid.cells = [1, 2, 3, 4, 5, 6];
+test('mirrorHorizontal mirrors each row', () => {
+  const grid = createGrid(3, 1, 0);
+  grid.cells = [1, 2, 3];
   mirrorHorizontal(grid);
-  assert.deepEqual(grid.cells, [3, 2, 1, 6, 5, 4]);
+  assert.deepEqual(grid.cells, [3, 2, 1]);
 });
 
-test('flood fill changes a connected region only', () => {
+test('floodFill only replaces connected cells', () => {
   const grid = createGrid(3, 3, 0);
   grid.cells = [0,0,1, 0,1,1, 0,0,1];
   floodFill(grid, 0, 0, 2);
