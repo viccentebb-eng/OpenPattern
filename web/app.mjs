@@ -136,7 +136,7 @@ canvas.addEventListener('pointerdown',e=>{
       beginMutation('Rellenar cuentas');
       const target=geometryColorIndex(node);
       for(const n of currentGeometryLayout().nodes){
-        if(geometryColorIndex(n)===target) pattern.geometry.colors[n.index]=activeColor;
+        if(geometryColorIndex(n)===target) setGeometryNodeColor(n,activeColor);
       }
       commitMutation();renderTechniqueLegend();render();return;
     }
@@ -259,6 +259,62 @@ function linePoints(x0,y0,x1,y1){
   const pts=[];let x=x0,y=y0,dx=Math.abs(x1-x0),sx=x0<x1?1:-1,dy=-Math.abs(y1-y0),sy=y0<y1?1:-1,err=dx+dy;
   while(true){pts.push({x,y});if(x===x1&&y===y1)break;const e2=2*err;if(e2>=dy){err+=dy;x+=sx}if(e2<=dx){err+=dx;y+=sy}}
   return pts;
+}
+
+function currentGeometryParams(){
+  if(pattern.techniqueId==='peyote-star'){
+    return {arms:renderOptions.starArms,levels:renderOptions.starLevels,baseWidth:renderOptions.starBaseWidth};
+  }
+  if(pattern.techniqueId==='bead-rosette'){
+    return {rings:renderOptions.rosetteRings,baseCount:renderOptions.rosetteBaseCount};
+  }
+  return {};
+}
+
+function ensureGeometryState(){
+  if(!isGeometryTechnique(pattern.techniqueId))return;
+  if(!pattern.geometry||pattern.geometry.kind!==pattern.techniqueId){
+    pattern.geometry={kind:pattern.techniqueId,params:currentGeometryParams(),colors:[]};
+  }else{
+    pattern.geometry.params={...currentGeometryParams(),...(pattern.geometry.params||{})};
+    if(!Array.isArray(pattern.geometry.colors))pattern.geometry.colors=[];
+  }
+}
+
+function syncGeometryParams(){
+  ensureGeometryState();
+  if(pattern.geometry)pattern.geometry.params=currentGeometryParams();
+}
+
+function currentGeometryLayout(){
+  ensureGeometryState();
+  return buildBeadLayout(pattern.techniqueId,pattern,pattern.geometry?.params||currentGeometryParams());
+}
+
+function geometryColorIndex(node){
+  if(pattern.techniqueId==='peyote-flat'&&Number.isInteger(node.sourceIndex)){
+    return pattern.grid.cells[node.sourceIndex]??node.defaultColorIndex??0;
+  }
+  const value=pattern.geometry?.colors?.[node.index];
+  return Number.isInteger(value)?value:(node.defaultColorIndex??0);
+}
+
+function setGeometryNodeColor(node,value){
+  if(pattern.techniqueId==='peyote-flat'&&Number.isInteger(node.sourceIndex)){
+    pattern.grid.cells[node.sourceIndex]=value;
+    return;
+  }
+  ensureGeometryState();
+  pattern.geometry.colors[node.index]=value;
+}
+
+function paintGeometryNode(node){
+  setGeometryNodeColor(node,activeTool==='eraser'?0:activeColor);
+}
+
+function eventToGeometryNode(e){
+  const p=pointerToCanvas(e);
+  return hitTestBeadLayout(lastGeometryProjection,p.x,p.y);
 }
 
 function setTool(tool){
