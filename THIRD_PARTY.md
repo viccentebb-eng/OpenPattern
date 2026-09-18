@@ -2,6 +2,21 @@
 
 OpenPattern intentionally evaluates existing open-source work before reimplementing complex craft engines.
 
+## JBead
+
+- Repository: https://github.com/damianbrunold/jbead
+- License: GPL-3.0-or-later
+- Relevant parts: bead crochet rope draft/corrected/simulation views, arbitrary palettes, bead symbols, repeat detection, bead lists, JBB/DBB formats and print/export workflow.
+- OpenPattern use today: product/behavior research only. No JBead GPL source is vendored.
+- Direct source reuse remains gated by OpenPattern's final root license.
+
+## cl-beads
+
+- Repository: https://github.com/shamazmazum/cl-beads
+- License: BSD-2-Clause
+- Relevant parts: JBead-compatible rope document model, corrected and simulated rope coordinate transforms, reading line/ruler behavior and JBB compatibility.
+- OpenPattern use today: the bead crochet rope geometry in `src/geometry/bead-rope.mjs` is an independent JavaScript adaptation of the documented BSD coordinate models, with attribution retained here and in source comments.
+
 ## gilesknap/peyote-pattern
 
 - Repository: https://github.com/gilesknap/peyote-pattern
