@@ -4,7 +4,11 @@ export function registerTechnique(definition) {
   if (!definition?.id || !definition?.name || !Array.isArray(definition.capabilities)) {
     throw new TypeError('Technique requires id, name and capabilities.');
   }
-  techniques.set(definition.id, Object.freeze({ ...definition }));
+  techniques.set(definition.id, Object.freeze({
+    sourceMode: 'manual',
+    group: 'Other',
+    ...definition
+  }));
 }
 
 export function getTechnique(id) {
@@ -16,13 +20,81 @@ export function listTechniques() {
 }
 
 [
-  ['tapestry-crochet', 'Tapestry crochet', ['grid', 'sequence', 'materials', 'measurements']],
-  ['c2c-crochet', 'C2C crochet', ['grid', 'sequence', 'materials', 'measurements']],
-  ['bead-loom', 'Bead loom', ['grid', 'materials', 'measurements']],
-  ['peyote-flat', 'Peyote flat', ['geometry', 'materials', 'measurements', 'sequence']],
-  ['peyote-star', 'Peyote star', ['geometry', 'materials', 'measurements', 'sequence']],
-  ['bead-rosette', 'Bead rosette / mandala', ['geometry', 'materials', 'measurements', 'sequence', 'thread-graph']],
-  ['bead-crochet-rope', 'Bead crochet rope', ['geometry', 'materials', 'measurements', 'sequence', 'thread-graph', 'repeat']],
-  ['cross-stitch', 'Cross stitch', ['grid', 'materials', 'measurements']],
-  ['knitting-colorwork', 'Knitting colorwork', ['grid', 'sequence', 'materials', 'measurements']]
-].forEach(([id, name, capabilities]) => registerTechnique({ id, name, capabilities }));
+  {
+    id:'tapestry-crochet',
+    name:'Tapestry crochet',
+    group:'Crochet · Colorwork',
+    sourceMode:'image-grid',
+    capabilities:['grid','sequence','materials','measurements']
+  },
+  {
+    id:'c2c-crochet',
+    name:'C2C crochet',
+    group:'Crochet · Colorwork',
+    sourceMode:'image-grid',
+    capabilities:['grid','sequence','materials','measurements']
+  },
+  {
+    id:'crochet-round-chart',
+    name:'Crochet chart · radial',
+    group:'Crochet · Symbols',
+    sourceMode:'parametric',
+    capabilities:['symbols','sequence','measurements','radial']
+  },
+  {
+    id:'amigurumi',
+    name:'Amigurumi · rounds',
+    group:'Crochet · Construction',
+    sourceMode:'sequence',
+    capabilities:['sequence','validation','measurements','graph']
+  },
+  {
+    id:'bead-loom',
+    name:'Bead loom',
+    group:'Beadwork · Grid',
+    sourceMode:'image-grid',
+    capabilities:['grid','materials','measurements']
+  },
+  {
+    id:'peyote-flat',
+    name:'Peyote flat',
+    group:'Beadwork · Geometry',
+    sourceMode:'geometry',
+    capabilities:['geometry','materials','measurements','sequence']
+  },
+  {
+    id:'peyote-star',
+    name:'Peyote star',
+    group:'Beadwork · Geometry',
+    sourceMode:'geometry',
+    capabilities:['geometry','materials','measurements','sequence']
+  },
+  {
+    id:'bead-rosette',
+    name:'Bead rosette / mandala',
+    group:'Beadwork · Geometry',
+    sourceMode:'geometry',
+    capabilities:['geometry','materials','measurements','sequence','thread-graph']
+  },
+  {
+    id:'bead-crochet-rope',
+    name:'Bead crochet rope',
+    group:'Beadwork · Crochet rope',
+    sourceMode:'geometry',
+    capabilities:['geometry','materials','measurements','sequence','thread-graph','repeat']
+  },
+  {
+    id:'cross-stitch',
+    name:'Cross stitch',
+    group:'Embroidery',
+    sourceMode:'image-grid',
+    capabilities:['grid','materials','measurements']
+  },
+  {
+    id:'knitting-colorwork',
+    name:'Knitting colorwork',
+    group:'Knitting',
+    sourceMode:'image-grid',
+    capabilities:['grid','sequence','materials','measurements']
+  }
+].forEach(registerTechnique);
