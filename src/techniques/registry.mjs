@@ -36,10 +36,10 @@ export function listTechniques() {
   },
   {
     id:'crochet-round-chart',
-    name:'Crochet chart · radial',
+    name:'Crochet chart editor',
     group:'Crochet · Symbols',
-    sourceMode:'parametric',
-    capabilities:['symbols','sequence','measurements','radial']
+    sourceMode:'manual',
+    capabilities:['symbols','sequence','measurements','radial','square','freeform','text']
   },
   {
     id:'amigurumi',
