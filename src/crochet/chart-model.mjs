@@ -46,6 +46,10 @@ export function generateCrochetTemplate(params={}) {
   const colorIndex=Number.isInteger(params.colorIndex)?params.colorIndex:0;
 
   let previousFirst=null;
+  if(layout==='radial'){
+    const foundation=addCrochetNode(chart,{type:'ring',x:0,y:0,round:0,colorIndex});
+    previousFirst=foundation.id;
+  }
   for(let round=1;round<=rounds;round++){
     const count=Math.max(1,startCount+growth*(round-1));
     const roundNodes=[];
@@ -160,7 +164,7 @@ export function chartToRoundText(chart) {
   const lines=[...groups.entries()].sort((a,b)=>a[0]-b[0]).map(([round,nodes])=>{
     const counts=countByType(nodes);
     const phrase=Object.entries(counts).map(([type,count])=>`${count} ${CROCHET_SYMBOLS[type]?.short??type}`).join(', ');
-    return `R${round}: ${phrase}`;
+    return round===0?`Base: ${phrase}`:`R${round}: ${phrase}`;
   });
   if(loose.length){
     const counts=countByType(loose);
