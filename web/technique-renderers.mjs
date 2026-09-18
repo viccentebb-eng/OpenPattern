@@ -33,6 +33,10 @@ export function techniqueLegendMeta(techniqueId, paletteIndex, options={}) {
       const profile = getBeadProfile(options.beadProfile);
       return { symbol:beadSymbol(paletteIndex), unit:'cuentas', catalog:profile.label };
     }
+    case 'crochet-round-chart':
+      return { symbol:'✣', unit:'puntadas', catalog:'chart crochet' };
+    case 'amigurumi':
+      return { symbol:'○', unit:'puntadas', catalog:'amigurumi' };
     case 'knitting-colorwork':
       return { symbol:'∨', unit:'puntos', catalog:'hilo: pendiente' };
     case 'c2c-crochet':
