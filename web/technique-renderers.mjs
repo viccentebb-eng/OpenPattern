@@ -85,7 +85,7 @@ function drawCrossStitch(ctx, rect, rgb, paletteIndex, options) {
 
   if ((mode === 'symbol' || mode === 'color-symbol') && rect.width >= 18) {
     ctx.fillStyle = mode === 'symbol' ? '#111' : contrastText(rgb);
-    ctx.font = `700 \${Math.max(8, Math.floor(rect.width * .34))}px system-ui`;
+    ctx.font = `700 ${Math.max(8, Math.floor(rect.width * .34))}px system-ui`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(CROSS_STITCH_SYMBOLS[paletteIndex % CROSS_STITCH_SYMBOLS.length], rect.x + rect.width/2, rect.y + rect.height/2);
@@ -139,7 +139,7 @@ function drawBead(ctx, rect, rgb, paletteIndex, options) {
 
   if (showSymbol && beadW >= 15) {
     ctx.fillStyle = contrastText(rgb);
-    ctx.font = `700 \${Math.max(8, Math.floor(beadH*.42))}px system-ui`;
+    ctx.font = `700 ${Math.max(8, Math.floor(beadH*.42))}px system-ui`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(beadSymbol(paletteIndex), x + beadW/2, y + beadH/2);
@@ -179,12 +179,12 @@ function beadSymbol(index) {
   if (index < alphabet.length) return alphabet[index];
   return String(index + 1);
 }
-function css([r,g,b]) { return `rgb(\${r},\${g},\${b})`; }
+function css([r,g,b]) { return `rgb(${r},${g},${b})`; }
 function luminance([r,g,b]) { return .2126*r + .7152*g + .0722*b; }
 function contrastText(rgb) { return luminance(rgb)>145 ? '#111' : '#fff'; }
-function contrastColor(rgb,alpha) { return luminance(rgb)>145 ? `rgba(0,0,0,\${alpha})` : `rgba(255,255,255,\${alpha})`; }
+function contrastColor(rgb,alpha) { return luminance(rgb)>145 ? `rgba(0,0,0,${alpha})` : `rgba(255,255,255,${alpha})`; }
 function shade([r,g,b], amount) {
   const f = amount < 0 ? 1 + amount : 1;
   const add = amount > 0 ? 255*amount : 0;
-  return `rgb(\${Math.max(0,Math.min(255,Math.round(r*f+add)))},\${Math.max(0,Math.min(255,Math.round(g*f+add)))},\${Math.max(0,Math.min(255,Math.round(b*f+add)))})`;
+  return `rgb(${Math.max(0,Math.min(255,Math.round(r*f+add)))},${Math.max(0,Math.min(255,Math.round(g*f+add)))},${Math.max(0,Math.min(255,Math.round(b*f+add)))})`;
 }
