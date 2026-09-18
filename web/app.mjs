@@ -120,6 +120,11 @@ $('#download').addEventListener('click',()=>{
 
 canvas.addEventListener('wheel',e=>{
   e.preventDefault();
+  if(isStructuredCrochetTechnique(pattern.techniqueId)){
+    view.zoom=clamp(view.zoom*(e.deltaY<0?1.12:1/1.12),.3,8);
+    render();
+    return;
+  }
   const p=pointerToCanvas(e),old=getLayout(),gx=(p.x-old.offsetX)/old.cell,gy=(p.y-old.offsetY)/old.cell;
   const nz=clamp(view.zoom*(e.deltaY<0?1.12:1/1.12),.2,16);
   if(nz===view.zoom)return;
@@ -136,6 +141,8 @@ canvas.addEventListener('pointerdown',e=>{
     gesture={type:'pan',pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,panX:view.panX,panY:view.panY};
     canvas.classList.add('panning');canvas.setPointerCapture(e.pointerId);return;
   }
+
+  if(isStructuredCrochetTechnique(pattern.techniqueId))return;
 
   if(isGeometryTechnique(pattern.techniqueId)){
     const node=eventToGeometryNode(e);if(!node)return;
@@ -165,7 +172,9 @@ canvas.addEventListener('pointerdown',e=>{
 });
 
 canvas.addEventListener('pointermove',e=>{
-  const hover=isGeometryTechnique(pattern.techniqueId)?eventToGeometryNode(e):eventToCell(e);
+  const hover=isStructuredCrochetTechnique(pattern.techniqueId)
+    ? null
+    : (isGeometryTechnique(pattern.techniqueId)?eventToGeometryNode(e):eventToCell(e));
   if(hover){
     statusEl.dataset.pointer=isGeometryTechnique(pattern.techniqueId)
       ? `cuenta ${hover.sequence??hover.index+1}`
