@@ -47,7 +47,9 @@
         </label>
       </div>
 
-      <div class="section">
+      <div class="section conversion">
+        <div class="section-title">Conversion Studio</div>
+
         <label>Técnica
           <select id="technique"></select>
         </label>
@@ -56,10 +58,7 @@
           <input id="image" type="file" accept="image/*" />
         </label>
 
-        <label class="check">
-          <input id="pixelMode" type="checkbox" />
-          <span>Pixel art: conservar bordes duros</span>
-        </label>
+        <canvas id="sourcePreview" width="256" height="138" aria-label="Vista previa de imagen original"></canvas>
 
         <div class="field-row">
           <label>Ancho
@@ -69,6 +68,56 @@
             <input id="colors" type="number" min="2" max="32" value="8" />
           </label>
         </div>
+
+        <label class="check">
+          <input id="pixelMode" type="checkbox" />
+          <span>Pixel art: conservar bordes duros</span>
+        </label>
+
+        <label class="check">
+          <input id="cleanGrid" type="checkbox" />
+          <span>Ignorar rejilla/fondo gris claro</span>
+        </label>
+
+        <label>Umbral de limpieza
+          <div class="range-row">
+            <input id="lightThreshold" type="range" min="170" max="250" value="215" />
+            <output id="lightThresholdValue">215</output>
+          </div>
+        </label>
+
+        <label>Brillo
+          <div class="range-row">
+            <input id="brightness" type="range" min="-100" max="100" value="0" />
+            <output id="brightnessValue">0</output>
+          </div>
+        </label>
+
+        <label>Contraste
+          <div class="range-row">
+            <input id="contrast" type="range" min="-100" max="100" value="0" />
+            <output id="contrastValue">0</output>
+          </div>
+        </label>
+
+        <label>Saturación
+          <div class="range-row">
+            <input id="saturation" type="range" min="-100" max="100" value="0" />
+            <output id="saturationValue">0</output>
+          </div>
+        </label>
+
+        <div class="conversion-actions">
+          <button id="regenerate" class="primary">Regenerar patrón</button>
+          <button id="resetConversion">Restablecer</button>
+        </div>
+
+        <label class="check">
+          <input id="autoRegenerate" type="checkbox" checked />
+          <span>Regenerar automáticamente</span>
+        </label>
+
+        <div id="sourceStatus" class="microcopy">Carga una imagen para empezar.</div>
       </div>
 
       <div class="section">
@@ -78,8 +127,13 @@
         <div class="color-editor">
           <input id="paletteColor" type="color" value="#000000" aria-label="Color de paleta" />
           <button id="addColor">Añadir</button>
-          <button id="updateColor">Actualizar</button>
+          <button id="updateColor">Aplicar</button>
         </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Leyenda técnica</div>
+        <div id="techniqueLegend" class="technique-legend"></div>
       </div>
 
       <div class="section compact-actions">

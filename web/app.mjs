@@ -1,21 +1,33 @@
 import { createPattern, touchPattern, validatePattern } from '../src/core/pattern.mjs';
 import { fillRect, floodFill, mirrorHorizontal } from '../src/core/grid.mjs';
-import { listTechniques } from '../src/techniques/registry.mjs';
 import { pixelsToPatternData } from '../src/image/image-to-grid.mjs';
+import { applyImageAdjustments } from '../src/image/preprocess.mjs';
+import { listTechniques } from '../src/techniques/registry.mjs';
+import { drawTechniqueCell, techniqueLegendMeta } from './technique-renderers.mjs';
 
 const STORAGE_KEY = 'openpattern.current.v1';
 const HISTORY_LIMIT = 50;
 
 const canvas = document.querySelector('#canvas');
 const ctx = canvas.getContext('2d');
+const sourcePreview = document.querySelector('#sourcePreview');
+const sourceCtx = sourcePreview.getContext('2d');
 const technique = document.querySelector('#technique');
 const imageInput = document.querySelector('#image');
 const widthInput = document.querySelector('#width');
 const colorsInput = document.querySelector('#colors');
 const pixelModeInput = document.querySelector('#pixelMode');
+const cleanGridInput = document.querySelector('#cleanGrid');
+const lightThresholdInput = document.querySelector('#lightThreshold');
+const brightnessInput = document.querySelector('#brightness');
+const contrastInput = document.querySelector('#contrast');
+const saturationInput = document.querySelector('#saturation');
+const autoRegenerateInput = document.querySelector('#autoRegenerate');
 const paletteEl = document.querySelector('#palette');
 const paletteColorInput = document.querySelector('#paletteColor');
+const techniqueLegendEl = document.querySelector('#techniqueLegend');
 const statusEl = document.querySelector('#status');
+const sourceStatusEl = document.querySelector('#sourceStatus');
 const saveStatusEl = document.querySelector('#saveStatus');
 const undoButton = document.querySelector('#undo');
 const redoButton = document.querySelector('#redo');
@@ -27,6 +39,8 @@ const brushSizeValue = document.querySelector('#brushSizeValue');
 const eraserSizeValue = document.querySelector('#eraserSizeValue');
 
 let pattern = loadPattern() ?? createPattern({ techniqueId: 'tapestry-crochet', width: 32, height: 24 });
+let sourceBitmap = null;
+let sourceName = '';
 let activeColor = Math.min(1, pattern.palette.length - 1);
 let activeTool = 'pencil';
 let brushSize = 1;
@@ -37,6 +51,7 @@ let lastPaintedCell = null;
 let pendingMutation = null;
 let undoStack = [];
 let redoStack = [];
+let regenerateTimer = null;
 let view = { zoom: 1, panX: 0, panY: 0 };
 
 for (const item of listTechniques()) {
@@ -67,46 +82,51 @@ technique.addEventListener('change', () => {
   beginMutation('Cambiar técnica');
   pattern.techniqueId = technique.value;
   commitMutation();
+  render();
+  renderTechniqueLegend();
 });
 
 imageInput.addEventListener('change', async () => {
   const file = imageInput.files?.[0];
   if (!file) return;
 
-  const bitmap = await createImageBitmap(file);
-  const width = Math.max(8, Math.min(300, Number(widthInput.value) || 48));
-  const height = Math.max(1, Math.round(bitmap.height * width / bitmap.width));
-  const work = document.createElement('canvas');
-  work.width = width;
-  work.height = height;
+  sourceBitmap?.close?.();
+  sourceBitmap = await createImageBitmap(file);
+  sourceName = file.name;
+  sourceStatusEl.textContent = `${file.name} · ${sourceBitmap.width}×${sourceBitmap.height}`;
+  drawSourcePreview();
+  await regeneratePattern('Importar imagen', true);
+});
 
-  const wctx = work.getContext('2d', { willReadFrequently: true });
-  wctx.imageSmoothingEnabled = !pixelModeInput.checked;
-  wctx.drawImage(bitmap, 0, 0, width, height);
-
-  const data = wctx.getImageData(0, 0, width, height);
-  const converted = pixelsToPatternData({
-    rgba: data.data,
-    width,
-    height,
-    maxColors: Number(colorsInput.value) || 8
+for (const control of [
+  widthInput,
+  colorsInput,
+  pixelModeInput,
+  cleanGridInput,
+  lightThresholdInput,
+  brightnessInput,
+  contrastInput,
+  saturationInput
+]) {
+  control.addEventListener('input', () => {
+    syncConversionLabels();
+    scheduleRegenerate();
   });
+  control.addEventListener('change', scheduleRegenerate);
+}
 
-  beginMutation('Importar imagen');
-  pattern = createPattern({
-    techniqueId: technique.value,
-    width,
-    height,
-    title: file.name.replace(/\.[^.]+$/, ''),
-    palette: converted.palette
-  });
-  pattern.grid.cells = converted.cells;
-  activeColor = 0;
-  view = { zoom: 1, panX: 0, panY: 0 };
-  commitMutation();
-  syncPaletteEditor();
-  renderPalette();
-  render();
+document.querySelector('#regenerate').addEventListener('click', () => regeneratePattern('Regenerar diseño'));
+document.querySelector('#resetConversion').addEventListener('click', () => {
+  widthInput.value = 48;
+  colorsInput.value = 8;
+  pixelModeInput.checked = false;
+  cleanGridInput.checked = false;
+  lightThresholdInput.value = 215;
+  brightnessInput.value = 0;
+  contrastInput.value = 0;
+  saturationInput.value = 0;
+  syncConversionLabels();
+  if (sourceBitmap) regeneratePattern('Restablecer conversión');
 });
 
 document.querySelector('#mirror').addEventListener('click', () => {
@@ -135,6 +155,7 @@ document.querySelector('#addColor').addEventListener('click', () => {
   activeColor = pattern.palette.length - 1;
   commitMutation();
   renderPalette();
+  renderTechniqueLegend();
   render();
 });
 
@@ -149,6 +170,7 @@ document.querySelector('#updateColor').addEventListener('click', () => {
   };
   commitMutation();
   renderPalette();
+  renderTechniqueLegend();
   render();
 });
 
@@ -177,7 +199,6 @@ canvas.addEventListener('wheel', (event) => {
   const gridX = (point.x - oldLayout.offsetX) / oldLayout.cell;
   const gridY = (point.y - oldLayout.offsetY) / oldLayout.cell;
   const nextZoom = clamp(view.zoom * (event.deltaY < 0 ? 1.12 : 1 / 1.12), 0.2, 16);
-
   if (nextZoom === view.zoom) return;
 
   view.zoom = nextZoom;
@@ -284,6 +305,94 @@ window.addEventListener('keyup', (event) => {
 
 window.addEventListener('beforeunload', savePattern);
 
+async function regeneratePattern(label = 'Regenerar diseño', resetView = false) {
+  if (!sourceBitmap) {
+    sourceStatusEl.textContent = 'Carga una imagen antes de regenerar.';
+    return;
+  }
+
+  clearTimeout(regenerateTimer);
+  sourceStatusEl.textContent = 'Generando…';
+
+  const width = clamp(Math.round(Number(widthInput.value) || 48), 8, 300);
+  const height = Math.max(1, Math.round(sourceBitmap.height * width / sourceBitmap.width));
+  const work = document.createElement('canvas');
+  work.width = width;
+  work.height = height;
+
+  const wctx = work.getContext('2d', { willReadFrequently: true });
+  wctx.imageSmoothingEnabled = !pixelModeInput.checked;
+  wctx.imageSmoothingQuality = 'high';
+  wctx.drawImage(sourceBitmap, 0, 0, width, height);
+
+  const data = wctx.getImageData(0, 0, width, height);
+  const adjusted = applyImageAdjustments(data.data, {
+    brightness: brightnessInput.value,
+    contrast: contrastInput.value,
+    saturation: saturationInput.value,
+    removeLightGrid: cleanGridInput.checked,
+    lightThreshold: lightThresholdInput.value,
+    neutralTolerance: 24
+  });
+
+  const converted = pixelsToPatternData({
+    rgba: adjusted,
+    width,
+    height,
+    maxColors: clamp(Math.round(Number(colorsInput.value) || 8), 2, 32)
+  });
+
+  beginMutation(label);
+  pattern = createPattern({
+    techniqueId: technique.value,
+    width,
+    height,
+    title: sourceName.replace(/\.[^.]+$/, '') || 'Imagen',
+    palette: converted.palette
+  });
+  pattern.grid.cells = converted.cells;
+  activeColor = 0;
+  if (resetView) view = { zoom: 1, panX: 0, panY: 0 };
+  commitMutation();
+
+  syncPaletteEditor();
+  renderPalette();
+  renderTechniqueLegend();
+  render();
+  sourceStatusEl.textContent = `${sourceName} → ${width}×${height} · ${converted.palette.length} colores`;
+}
+
+function scheduleRegenerate() {
+  if (!autoRegenerateInput.checked || !sourceBitmap) return;
+  clearTimeout(regenerateTimer);
+  regenerateTimer = setTimeout(() => regeneratePattern('Ajustar conversión'), 280);
+}
+
+function drawSourcePreview() {
+  sourceCtx.clearRect(0, 0, sourcePreview.width, sourcePreview.height);
+  sourceCtx.fillStyle = '#fff';
+  sourceCtx.fillRect(0, 0, sourcePreview.width, sourcePreview.height);
+  if (!sourceBitmap) return;
+
+  const scale = Math.min(sourcePreview.width / sourceBitmap.width, sourcePreview.height / sourceBitmap.height);
+  const width = sourceBitmap.width * scale;
+  const height = sourceBitmap.height * scale;
+  sourceCtx.drawImage(
+    sourceBitmap,
+    (sourcePreview.width - width) / 2,
+    (sourcePreview.height - height) / 2,
+    width,
+    height
+  );
+}
+
+function syncConversionLabels() {
+  document.querySelector('#lightThresholdValue').value = lightThresholdInput.value;
+  document.querySelector('#brightnessValue').value = brightnessInput.value;
+  document.querySelector('#contrastValue').value = contrastInput.value;
+  document.querySelector('#saturationValue').value = saturationInput.value;
+}
+
 function finishGesture(event) {
   if (!gesture || gesture.pointerId !== event.pointerId) return;
   const wasPainting = gesture.type === 'paint';
@@ -317,7 +426,6 @@ function applyBrushAt(x, y) {
   const size = erasing ? eraserSize : brushSize;
   const value = erasing ? 0 : activeColor;
   const start = Math.floor((size - 1) / 2);
-
   fillRect(pattern.grid, x - start, y - start, size, size, value);
 }
 
@@ -366,7 +474,6 @@ function beginMutation(label = 'Cambio') {
 
 function commitMutation() {
   if (!pendingMutation) return;
-
   const changed = JSON.stringify(pendingMutation.pattern) !== JSON.stringify(pattern);
 
   if (changed) {
@@ -384,7 +491,6 @@ function commitMutation() {
 
 function undo() {
   if (!undoStack.length) return;
-
   const entry = undoStack.pop();
   redoStack.push({ pattern: clone(pattern), label: entry.label });
   pattern = entry.pattern;
@@ -393,7 +499,6 @@ function undo() {
 
 function redo() {
   if (!redoStack.length) return;
-
   const entry = redoStack.pop();
   undoStack.push({ pattern: clone(pattern), label: entry.label });
   pattern = entry.pattern;
@@ -409,6 +514,7 @@ function afterPatternRestore() {
   activeColor = Math.min(activeColor, pattern.palette.length - 1);
   syncPaletteEditor();
   renderPalette();
+  renderTechniqueLegend();
   savePattern();
   updateHistoryUI();
   render();
@@ -446,6 +552,44 @@ function renderPalette() {
       updateStatus();
     });
     paletteEl.append(button);
+  });
+}
+
+function renderTechniqueLegend() {
+  const counts = Array(pattern.palette.length).fill(0);
+  for (const paletteIndex of pattern.grid.cells) {
+    if (paletteIndex >= 0 && paletteIndex < counts.length) counts[paletteIndex] += 1;
+  }
+
+  techniqueLegendEl.replaceChildren();
+
+  pattern.palette.forEach((color, index) => {
+    const meta = techniqueLegendMeta(pattern.techniqueId, index);
+    const row = document.createElement('div');
+    row.className = 'legend-row';
+
+    const chip = document.createElement('span');
+    chip.className = 'legend-chip';
+    chip.style.background = `rgb(${color.rgb.join(',')})`;
+
+    const symbol = document.createElement('span');
+    symbol.className = 'legend-symbol';
+    symbol.textContent = meta.symbol;
+
+    const details = document.createElement('span');
+    details.className = 'legend-details';
+    const title = document.createElement('span');
+    title.textContent = color.name;
+    const small = document.createElement('small');
+    small.textContent = meta.catalog;
+    details.append(title, small);
+
+    const count = document.createElement('span');
+    count.className = 'legend-count';
+    count.textContent = `${counts[index]} ${meta.unit}`;
+
+    row.append(chip, symbol, details, count);
+    techniqueLegendEl.append(row);
   });
 }
 
@@ -493,14 +637,20 @@ function render() {
 
   for (let y = startY; y < endY; y += 1) {
     for (let x = startX; x < endX; x += 1) {
-      const index = pattern.grid.cells[y * pattern.grid.width + x];
-      const color = pattern.palette[index]?.rgb ?? [255, 0, 255];
-      ctx.fillStyle = `rgb(${color.join(',')})`;
-      ctx.fillRect(offsetX + x * cell, offsetY + y * cell, Math.ceil(cell), Math.ceil(cell));
+      const paletteIndex = pattern.grid.cells[y * pattern.grid.width + x];
+      const color = pattern.palette[paletteIndex]?.rgb ?? [255, 0, 255];
+      drawTechniqueCell(ctx, pattern.techniqueId, {
+        x: offsetX + x * cell,
+        y: offsetY + y * cell,
+        width: cell,
+        height: cell
+      }, color, paletteIndex);
     }
   }
 
-  if (cell >= 7) drawGrid({ cell, offsetX, offsetY, startX, startY, endX, endY });
+  if (cell >= 7 && pattern.techniqueId !== 'bead-loom') {
+    drawGrid({ cell, offsetX, offsetY, startX, startY, endX, endY });
+  }
 
   ctx.strokeStyle = 'rgba(0,0,0,.32)';
   ctx.lineWidth = 1;
@@ -534,13 +684,11 @@ function eventToCell(event) {
   const layout = getLayout();
   const x = Math.floor((point.x - layout.offsetX) / layout.cell);
   const y = Math.floor((point.y - layout.offsetY) / layout.cell);
-
   return x >= 0 && y >= 0 && x < pattern.grid.width && y < pattern.grid.height ? { x, y } : null;
 }
 
 function pointerToCanvas(event) {
   const rect = canvas.getBoundingClientRect();
-
   return {
     x: (event.clientX - rect.left) * canvas.width / rect.width,
     y: (event.clientY - rect.top) * canvas.height / rect.height
@@ -604,8 +752,10 @@ function safeName(value) {
 canvas.dataset.tool = activeTool;
 brushSizeValue.value = '1×1';
 eraserSizeValue.value = '1×1';
+syncConversionLabels();
 syncPaletteEditor();
 renderPalette();
+renderTechniqueLegend();
 updateHistoryUI();
 render();
 savePattern();

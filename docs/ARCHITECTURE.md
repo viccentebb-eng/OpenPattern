@@ -18,49 +18,41 @@ Technique Adapter
 
 ## Pattern Core
 
-Responsable de:
-
-- formato persistente;
-- schemaVersion;
-- metadata;
-- paleta;
-- grid;
-- validación común.
-
-No conoce la UI.
+Responsable de formato persistente, schemaVersion, metadata, paleta, grid y validación común. No conoce la UI.
 
 ## Grid Engine
 
-Responsable de operaciones de celdas:
-
-- lectura/escritura;
-- fill;
-- flood fill;
-- espejo;
-- futuras selecciones y transformaciones.
+Responsable de operaciones de celdas: lectura/escritura, fill, flood fill, espejo y futuras selecciones/transformaciones.
 
 ## Technique Registry
 
-Cada técnica declara capacidades y reglas. En esta fase:
+Cada técnica declara capacidades. El patrón universal no cambia, pero la presentación sí.
 
-- tapestry-crochet
-- c2c-crochet
-- bead-loom
-- cross-stitch
-- knitting-colorwork
+En la web, `technique-renderers.mjs` traduce el grid universal a vistas especializadas:
+- cross stitch: cruces + símbolos;
+- bead loom: cuentas redondeadas;
+- knitting colorwork: marca visual de punto;
+- C2C: bloque con dirección;
+- tapestry crochet: celda sólida.
 
-## Image Pipeline
+Los códigos comerciales reales (DMC, Miyuki, TOHO, etc.) son una capa de materiales y no se inventan desde el renderer.
+
+## Conversion Studio
+
+La imagen fuente se conserva en memoria durante la sesión. Cambiar ancho, colores o ajustes vuelve a ejecutar:
 
 ```text
-Image
+Source image
  -> resize/sample
+ -> brightness/contrast/saturation
+ -> optional light neutral grid cleanup
  -> palette extraction
- -> nearest color mapping
+ -> nearest-color mapping
  -> universal grid
- -> technique adapter
+ -> technique renderer
 ```
 
-El algoritmo inicial usa distancia RGB por simplicidad. El roadmap contempla Lab/CIEDE2000 y paletas físicas reales.
+El usuario puede regenerar manualmente o activar regeneración automática.
 
 ## Persistencia futura
 
