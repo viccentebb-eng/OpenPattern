@@ -2,64 +2,72 @@
 
 ## Principio
 
-Una técnica no es una aplicación separada. Es una combinación de capacidades sobre motores compartidos.
+Una técnica no es una aplicación separada. Es una combinación de motores y una vista especializada.
 
-```text
-Technique Adapter
-    |
-    +-- Grid
-    +-- Symbols
-    +-- Sequence
-    +-- Thread/Graph
-    +-- Measurements
-    +-- Geometry
-    +-- Materials
-```
+Technique Adapter:
+- Grid Engine
+- Symbol Engine
+- Sequence Engine
+- Thread/Graph Engine
+- Geometry/Layout Engine
+- Measurement Engine
+- Materials Engine
 
-## Pattern Core
+## Workspace Shell
 
-Responsable de formato persistente, schemaVersion, metadata, paleta, grid y validación común. No conoce la UI.
+OpenPattern usa tres zonas: herramientas y Conversion Studio, lienzo central e inspector técnico.
+
+El inspector cambia según la técnica sin duplicar el editor. Contiene Pattern Viewer, opciones de renderer, guías, coordenadas, modo seguimiento, paleta, leyenda e historial.
 
 ## Grid Engine
 
-Responsable de operaciones de celdas: lectura/escritura, fill, flood fill, espejo y futuras selecciones/transformaciones.
+Mantiene una cuadrícula universal para colorwork, cross stitch, bead loom, C2C y otras técnicas compatibles.
 
-## Technique Registry
+## Technique Renderers
 
-Cada técnica declara capacidades. El patrón universal no cambia, pero la presentación sí.
+El dato no cambia; cambia cómo se representa:
+- Cross stitch: cruces, símbolos o ambos.
+- Bead loom: cuenta plana o realista, perfil físico, hueco central y etiquetas.
+- Knitting colorwork: bloque, V o símbolo.
+- C2C: bloque con guía diagonal.
+- Tapestry: celdas de color.
 
-En la web, `technique-renderers.mjs` traduce el grid universal a vistas especializadas:
-- cross stitch: cruces + símbolos;
-- bead loom: cuentas redondeadas;
-- knitting colorwork: marca visual de punto;
-- C2C: bloque con dirección;
-- tapestry crochet: celda sólida.
+Los perfiles iniciales de cuentas guardan dimensiones aproximadas. Los códigos comerciales pertenecen al Materials Engine.
 
-Los códigos comerciales reales (DMC, Miyuki, TOHO, etc.) son una capa de materiales y no se inventan desde el renderer.
+## Geometry/Layout Engine
+
+Resolverá topologías que no son una cuadrícula rectangular: peyote desplazado, brick, estrellas y warped squares, triángulos, medallones, rosettes, huichol/netting, círculos, arcos, componentes reutilizables y thread paths.
+
+No se debe falsificar estas técnicas dibujándolas sobre una cuadrícula cuadrada.
+
+## Symbol Engine
+
+Los puntos de crochet y knitting no son píxeles. Cada símbolo tendrá tipo, orientación, escala, conexiones, fila/vuelta, semántica, leyenda y texto equivalente.
+
+Permitirá rows, rounds, freeform, agrupaciones, indicadores y charts múltiples.
+
+## Sequence Engine
+
+Representará filas, vueltas, repeticiones, aumentos/disminuciones, conteos, word charts e instrucciones escritas. También validará matemáticas e inconsistencias.
+
+## Crochet Graph + 2D/3D
+
+Camino previsto: instrucciones -> parser -> stitch graph -> validación -> chart SVG -> layout 2D/3D.
+
+Nodos = puntos/conexiones. Aristas = tramos de hilo/conexiones.
 
 ## Conversion Studio
 
-La imagen fuente se conserva en memoria durante la sesión. Cambiar ancho, colores o ajustes vuelve a ejecutar:
+Flujo: imagen -> resize -> ajustes -> limpieza -> cuantización -> grid universal -> renderer técnico.
 
-```text
-Source image
- -> resize/sample
- -> brightness/contrast/saturation
- -> optional light neutral grid cleanup
- -> palette extraction
- -> nearest-color mapping
- -> universal grid
- -> technique renderer
-```
+La fuente permanece en memoria durante la sesión para regenerar sin volver a subir.
 
-El usuario puede regenerar manualmente o activar regeneración automática.
+## Materials Engine
 
-## Persistencia futura
+Mantendrá catálogos reales y separados del renderer: DMC, Anchor, Miyuki, TOHO, Preciosa, hilos, acabados, formas, dimensiones e inventario.
 
-Local-first:
+El matching de color deberá usar espacio perceptual; no se inventarán códigos por RGB.
 
-```text
-IndexedDB -> sync opcional -> PostgreSQL / object storage
-```
+## Persistencia
 
-El editor debe seguir siendo útil sin cuenta ni conexión.
+Local-first: IndexedDB -> sync opcional -> PostgreSQL/object storage.
