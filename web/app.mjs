@@ -489,7 +489,32 @@ function renderTechniqueControls(){
   techniqueOptionsEl.replaceChildren();
   const note=t=>{const d=document.createElement('div');d.className='technique-note';d.textContent=t;techniqueOptionsEl.append(d)};
 
-  if(isGeometryTechnique(pattern.techniqueId)){
+  if(pattern.techniqueId==='crochet-round-chart'){
+    hydrateCrochetOptions();
+    addTechniqueNumberControl('Vueltas','radialRounds',1,30,'crochet');
+    addTechniqueNumberControl('Puntos iniciales','radialStartCount',3,60,'crochet');
+    addTechniqueNumberControl('Aumento por vuelta','radialGrowth',0,24,'crochet');
+    addTechniqueSelectControl('Puntada','radialStitch',Object.values(CROCHET_STITCHES).map(s=>[s.id,s.label]),'crochet');
+    addTechniqueSelectControl('Dirección','radialDirection',[['cw','Horario'],['ccw','Antihorario']],'crochet');
+    addCheckControl('Rotar símbolos alrededor del círculo','radialRotateSymbols');
+    note('Chart radial paramétrico: la imagen no define la geometría. Las vueltas, aumentos y puntadas se controlan aquí.');
+    renderCrochetRoundReport(currentCrochetData());
+  }else if(pattern.techniqueId==='amigurumi'){
+    hydrateCrochetOptions();
+    addTechniqueSelectControl('Forma','amigurumiShape',[
+      ['sphere','Esfera / cabeza'],
+      ['cylinder','Cilindro / cuerpo'],
+      ['cup','Copa abierta'],
+      ['cone','Cono']
+    ],'crochet');
+    addTechniqueNumberControl('Puntos del anillo inicial','amigurumiStartCount',3,12,'crochet');
+    addTechniqueNumberControl('Máximo de puntos','amigurumiMaxStitches',6,240,'crochet');
+    addTechniqueNumberControl('Vueltas rectas','amigurumiBodyRounds',1,80,'crochet');
+    const data=currentCrochetData();
+    const issues=validateRoundSequence(data.rounds);
+    note(issues.length?`Revisión: \${issues.join(' · ')}`:'Secuencia válida en el modelo actual. La imagen no controla la construcción.');
+    renderCrochetRoundReport(data);
+  }else if(isGeometryTechnique(pattern.techniqueId)){
     hydrateGeometryOptions();
     const profile=document.createElement('label');
     profile.innerHTML='Tipo de cuenta<select id="geometryBeadProfile"></select>';
@@ -554,6 +579,49 @@ function renderTechniqueControls(){
   }else{
     note('Esta técnica usa el Grid Engine base. Las instrucciones y símbolos específicos llegarán con Sequence/Symbol Engine.');
   }
+}
+
+function addTechniqueNumberControl(label,key,min,max,engine){
+  const l=document.createElement('label'),i=document.createElement('input');
+  i.type='number';i.min=String(min);i.max=String(max);i.value=String(renderOptions[key]);
+  l.append(document.createTextNode(label),i);
+  i.addEventListener('change',()=>{
+    const next=Math.max(min,Math.min(max,Math.round(+i.value||renderOptions[key])));
+    beginMutation('Ajustar técnica');
+    renderOptions[key]=next;i.value=String(next);
+    if(engine==='crochet')syncCrochetParams();
+    commitMutation();saveViewOptions();renderTechniqueControls();renderTechniqueLegend();render();
+  });
+  techniqueOptionsEl.append(l);
+}
+
+function addTechniqueSelectControl(label,key,items,engine){
+  const l=document.createElement('label'),s=document.createElement('select');
+  l.append(document.createTextNode(label),s);
+  for(const [v,t] of items){const o=document.createElement('option');o.value=v;o.textContent=t;s.append(o)}
+  s.value=renderOptions[key];
+  s.addEventListener('change',()=>{
+    beginMutation('Ajustar técnica');
+    renderOptions[key]=s.value;
+    if(engine==='crochet')syncCrochetParams();
+    commitMutation();saveViewOptions();renderTechniqueControls();renderTechniqueLegend();render();
+  });
+  techniqueOptionsEl.append(l);
+}
+
+function renderCrochetRoundReport(data){
+  const box=document.createElement('div');box.className='round-report';
+  const rounds=(data.rounds??[]).slice(0,16);
+  for(const r of rounds){
+    const row=document.createElement('div');row.className='round-report-row';
+    const left=document.createElement('strong');left.textContent=`R\${r.round}`;
+    const right=document.createElement('span');right.textContent=r.instruction??`\${r.count} sts`;
+    row.append(left,right);box.append(row);
+  }
+  if((data.rounds?.length??0)>16){
+    const more=document.createElement('div');more.className='microcopy';more.textContent=`… \${data.rounds.length-16} vueltas más`;box.append(more);
+  }
+  techniqueOptionsEl.append(box);
 }
 
 function addSelectControl(label,key,items){
