@@ -1,6 +1,6 @@
 # Roadmap
 
-## Fase 0 — Fundaciones (este starter)
+## Fase 0 — Fundaciones ✅
 - Pattern Core v1
 - Technique Registry
 - Grid Engine básico
@@ -8,15 +8,27 @@
 - Demo web sin dependencias
 - Tests del núcleo
 
-## Fase 1 — Editor real
-- zoom/pan
-- undo/redo
-- selección
+## Fase 1 — Editor real (en progreso)
+### Entregado
+- pincel continuo
+- borrador
+- flood fill
+- undo/redo (50 pasos)
+- zoom centrado en cursor
+- pan con herramienta, rueda central o barra espaciadora
+- culling básico: sólo dibujar celdas visibles
+- guardado local automático
+- modo pixel art sin suavizado
+- atajos de teclado
+
+### Siguiente
+- selección rectangular
 - copiar/pegar
-- capas ligeras
-- simetrías
-- IndexedDB
-- PWA
+- mover selección
+- simetría vertical y radial
+- IndexedDB para proyectos grandes
+- PWA/offline cache
+- importación de .openpattern.json
 
 ## Fase 2 — Color y materiales
 - Lab/CIEDE2000
