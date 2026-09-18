@@ -31,9 +31,18 @@
       <label>Tamaño del borrador<div class="range-row"><input id="eraserSize" type="range" min="1" max="12" value="1"><output id="eraserSizeValue">1×1</output></div></label>
     </section>
 
-    <section class="section conversion">
-      <div class="section-title">Conversion Studio</div>
+    <section class="section project-section">
+      <div class="section-title">Proyecto</div>
       <label>Técnica<select id="technique"></select></label>
+      <div class="technique-summary">
+        <strong id="techniqueName">Técnica</strong>
+        <span id="techniqueSourceMode" class="mode-badge">Manual</span>
+      </div>
+      <div id="techniqueSourceHelp" class="microcopy"></div>
+    </section>
+
+    <section class="section conversion" id="imageConversionPanel">
+      <div class="section-title">Conversión desde imagen</div>
       <label>Imagen o pixel art<input id="image" type="file" accept="image/*"></label>
       <canvas id="sourcePreview" width="256" height="138"></canvas>
       <div class="field-row">
