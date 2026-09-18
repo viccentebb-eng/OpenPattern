@@ -5,6 +5,7 @@ import { applyImageAdjustments } from '../src/image/preprocess.mjs';
 import { listTechniques } from '../src/techniques/registry.mjs';
 import { BEAD_PROFILES, drawTechniqueCell, estimateTechniqueSize, techniqueLegendMeta } from './technique-renderers.mjs';
 import { buildBeadLayout, isGeometryTechnique } from '../src/geometry/bead-layout.mjs';
+import { beadRunsForRepeat, detectLinearRepeat } from '../src/geometry/bead-rope.mjs';
 import { drawBeadLayout, hitTestBeadLayout, projectBeadLayout } from './bead-geometry-renderer.mjs';
 
 const STORAGE_KEY='openpattern.current.v1';
@@ -270,6 +271,9 @@ function hydrateGeometryOptions(){
   }else if(pattern.techniqueId==='bead-rosette'){
     if(Number.isFinite(+params.rings))renderOptions.rosetteRings=+params.rings;
     if(Number.isFinite(+params.baseCount))renderOptions.rosetteBaseCount=+params.baseCount;
+  }else if(pattern.techniqueId==='bead-crochet-rope'){
+    if(typeof params.view==='string')renderOptions.ropeView=params.view;
+    if(Number.isFinite(+params.rotation))renderOptions.ropeRotation=+params.rotation;
   }
 }
 
@@ -279,6 +283,9 @@ function currentGeometryParams(){
   }
   if(pattern.techniqueId==='bead-rosette'){
     return {rings:renderOptions.rosetteRings,baseCount:renderOptions.rosetteBaseCount};
+  }
+  if(pattern.techniqueId==='bead-crochet-rope'){
+    return {circumference:pattern.grid.width,view:renderOptions.ropeView,rotation:renderOptions.ropeRotation};
   }
   return {};
 }
@@ -305,7 +312,7 @@ function currentGeometryLayout(){
 
 function geometryColorIndex(node){
   let raw;
-  if(pattern.techniqueId==='peyote-flat'&&Number.isInteger(node.sourceIndex)){
+  if(Number.isInteger(node.sourceIndex)){
     raw=pattern.grid.cells[node.sourceIndex]??node.defaultColorIndex??0;
   }else{
     const value=pattern.geometry?.colors?.[node.index];
@@ -316,7 +323,7 @@ function geometryColorIndex(node){
 }
 
 function setGeometryNodeColor(node,value){
-  if(pattern.techniqueId==='peyote-flat'&&Number.isInteger(node.sourceIndex)){
+  if(Number.isInteger(node.sourceIndex)){
     pattern.grid.cells[node.sourceIndex]=value;
     return;
   }
@@ -418,6 +425,21 @@ function renderTechniqueControls(){
       addGeometryNumberControl('Anillos','rosetteRings',2,10);
       addGeometryNumberControl('Módulos base','rosetteBaseCount',4,16);
       note('Roseta radial con cuentas redondas, hoja y lágrima. El thread path es editable visualmente en próximas iteraciones.');
+    }else if(pattern.techniqueId==='bead-crochet-rope'){
+      addGeometrySelectControl('Vista','ropeView',[
+        ['draft','Borrador'],
+        ['corrected','Patrón de trabajo'],
+        ['rope','Cuerda terminada']
+      ]);
+      addRopeCircumferenceControl();
+      addGeometryNumberControl('Rotación / desplazamiento','ropeRotation',0,63);
+      const repeat=detectLinearRepeat(pattern.grid);
+      const runs=beadRunsForRepeat(pattern.grid,repeat).slice(0,12)
+        .map(run=>`${run.count}× ${pattern.palette[run.colorIndex]?.name??('#'+run.colorIndex)}`)
+        .join(' · ');
+      note(repeat
+        ? `Repetición detectada: ${repeat} cuentas. ${runs}${beadRunsForRepeat(pattern.grid,repeat).length>12?' …':''}`
+        : 'Aún no hay una repetición útil. Diseña el borrador y OpenPattern calculará la secuencia de ensartado.');
     }else{
       note('Flat peyote usa el patrón actual, alterna columnas reales de peyote y conserva el orden de trabajo por filas.');
     }
@@ -475,6 +497,45 @@ function addGeometryNumberControl(label,key,min,max){
     commitMutation();saveViewOptions();renderTechniqueLegend();render();
   });
   techniqueOptionsEl.append(l);
+}
+
+function addGeometrySelectControl(label,key,items){
+  const l=document.createElement('label'),s=document.createElement('select');
+  l.append(document.createTextNode(label),s);
+  for(const [value,text] of items){
+    const o=document.createElement('option');o.value=value;o.textContent=text;s.append(o);
+  }
+  s.value=renderOptions[key];
+  s.addEventListener('change',()=>{
+    beginMutation('Ajustar geometría');
+    renderOptions[key]=s.value;syncGeometryParams();
+    commitMutation();saveViewOptions();renderTechniqueLegend();render();
+  });
+  techniqueOptionsEl.append(l);
+}
+
+function addRopeCircumferenceControl(){
+  const l=document.createElement('label'),i=document.createElement('input');
+  i.type='number';i.min='3';i.max='64';i.value=String(pattern.grid.width);
+  l.append(document.createTextNode('Circunferencia (cuentas)'),i);
+  i.addEventListener('change',()=>{
+    const width=Math.max(3,Math.min(64,Math.round(+i.value||pattern.grid.width)));
+    resizeRopeCircumference(width);
+    i.value=String(pattern.grid.width);
+  });
+  techniqueOptionsEl.append(l);
+}
+
+function resizeRopeCircumference(width){
+  if(width===pattern.grid.width)return;
+  beginMutation('Cambiar circunferencia');
+  const cells=pattern.grid.cells.slice();
+  const height=Math.max(1,Math.ceil(cells.length/width));
+  const next=Array(width*height).fill(0);
+  for(let i=0;i<Math.min(cells.length,next.length);i++)next[i]=cells[i];
+  pattern.grid={width,height,cells:next};
+  syncGeometryParams();
+  commitMutation();renderTechniqueLegend();renderTechniqueControls();render();
 }
 
 function getBaseCell(){
@@ -604,7 +665,7 @@ function savePattern(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(patte
 function loadPattern(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return null;const p=JSON.parse(raw);return validatePattern(p).length?null:p}catch{return null}}
 function loadViewOptions(){try{return{...defaults(),...JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')}}catch{return defaults()}}
 function saveViewOptions(){localStorage.setItem(VIEW_KEY,JSON.stringify(renderOptions))}
-function defaults(){return{showGuides:true,guideSpacing:10,showCoordinates:true,trackMode:false,trackIndex:0,beadProfile:'delica11',beadRender:'realistic',beadHoles:true,beadSymbols:false,crossStyle:'color-symbol',knitStyle:'color-v',c2cDiagonal:true,geometryShowPath:true,geometryShowNumbers:false,starArms:5,starLevels:13,starBaseWidth:9,rosetteRings:5,rosetteBaseCount:6}}
+function defaults(){return{showGuides:true,guideSpacing:10,showCoordinates:true,trackMode:false,trackIndex:0,beadProfile:'delica11',beadRender:'realistic',beadHoles:true,beadSymbols:false,crossStyle:'color-symbol',knitStyle:'color-v',c2cDiagonal:true,geometryShowPath:true,geometryShowNumbers:false,starArms:5,starLevels:13,starBaseWidth:9,rosetteRings:5,rosetteBaseCount:6,ropeView:'draft',ropeRotation:0}}
 function clone(v){return JSON.parse(JSON.stringify(v))}
 function hexToRgb(hex){const v=hex.replace('#','');return[parseInt(v.slice(0,2),16),parseInt(v.slice(2,4),16),parseInt(v.slice(4,6),16)]}
 function rgbToHex([r,g,b]){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')}
