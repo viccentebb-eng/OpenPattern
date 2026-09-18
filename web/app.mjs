@@ -764,7 +764,15 @@ function renderGeometryCanvas(){
 
 function renderCrochetCanvas(){
   lastGeometryProjection=[];
-  drawCrochetTechnique(ctx,pattern.techniqueId,currentCrochetData(),renderOptions,view);
+  if(pattern.techniqueId==='crochet-round-chart'){
+    lastCrochetProjection=drawCrochetChart(ctx,currentCrochetChart(),{
+      ...renderOptions,
+      palette:pattern.palette
+    },view,{selectedId:crochetSelectedId,connectFrom:crochetConnectFrom});
+  }else{
+    lastCrochetProjection=[];
+    drawCrochetTechnique(ctx,pattern.techniqueId,currentCrochetData(),renderOptions,view);
+  }
   updateStatus();renderPatternViewer();updateProjectMeta();
 }
 
@@ -823,7 +831,11 @@ function renderPatternViewer(){
   viewerCtx.clearRect(0,0,patternViewer.width,patternViewer.height);
   viewerCtx.fillStyle='#fff';viewerCtx.fillRect(0,0,patternViewer.width,patternViewer.height);
 
-  if(isStructuredCrochetTechnique(pattern.techniqueId)){
+  if(pattern.techniqueId==='crochet-round-chart'){
+    drawCrochetChart(viewerCtx,currentCrochetChart(),{...renderOptions,palette:pattern.palette},{zoom:1,panX:0,panY:0},{});
+    return;
+  }
+  if(pattern.techniqueId==='amigurumi'){
     drawCrochetTechnique(viewerCtx,pattern.techniqueId,currentCrochetData(),renderOptions,{zoom:1,panX:0,panY:0});
     return;
   }
@@ -845,14 +857,15 @@ function renderPatternViewer(){
 }
 
 function updateProjectMeta(){
-  if(isStructuredCrochetTechnique(pattern.techniqueId)){
+  if(pattern.techniqueId==='crochet-round-chart'){
+    const summary=summarizeCrochetChart(currentCrochetChart());
+    const layout={radial:'radial',square:'granny/cuadrado',freeform:'libre'}[currentCrochetChart().layout]??currentCrochetChart().layout;
+    projectMetaEl.textContent=`${summary.stitches} puntadas · ${summary.rounds} vueltas · ${summary.connections} conexiones · ${layout}`;
+    return;
+  }
+  if(pattern.techniqueId==='amigurumi'){
     const data=currentCrochetData();
-    if(pattern.techniqueId==='amigurumi'){
-      projectMetaEl.textContent=`${data.shape} · ${data.rounds.length} vueltas · ${data.meta.totalStitches.toLocaleString()} puntadas estimadas`;
-    }else{
-      const last=data.rounds[data.rounds.length-1];
-      projectMetaEl.textContent=`Chart radial · ${data.rounds.length} vueltas · ${last?.count??0} puntadas en la última vuelta`;
-    }
+    projectMetaEl.textContent=`${data.shape} · ${data.rounds.length} vueltas · ${data.meta.totalStitches.toLocaleString()} puntadas estimadas`;
     return;
   }
   if(isGeometryTechnique(pattern.techniqueId)){
@@ -879,13 +892,13 @@ function pointerToCanvas(e){
 function updateStatus(){
   const names={pencil:'Pincel',eraser:'Borrador',fill:'Relleno',pan:'Mover'};
   const size=activeTool==='pencil'?` · ${brushSize}×${brushSize}`:activeTool==='eraser'?` · ${eraserSize}×${eraserSize}`:'';
-  const base=isStructuredCrochetTechnique(pattern.techniqueId)
-    ? (pattern.techniqueId==='amigurumi'
+  const base=pattern.techniqueId==='crochet-round-chart'
+    ? `${currentCrochetChart().nodes.length} puntadas · ${crochetTool}`
+    : (pattern.techniqueId==='amigurumi'
       ? `${currentCrochetData().rounds.length} vueltas`
-      : `${currentCrochetData().rounds.length} vueltas radiales`)
-    : (isGeometryTechnique(pattern.techniqueId)
-      ? `${currentGeometryLayout().nodes.length} cuentas`
-      : `${pattern.grid.width}×${pattern.grid.height}`);
+      : (isGeometryTechnique(pattern.techniqueId)
+        ? `${currentGeometryLayout().nodes.length} cuentas`
+        : `${pattern.grid.width}×${pattern.grid.height}`));
   statusEl.textContent=`${base} · ${pattern.palette.length} colores · ${names[activeTool]}${size} · ${Math.round(view.zoom*100)}%${statusEl.dataset.pointer?' · '+statusEl.dataset.pointer:''}`;
   $('#resetView').textContent=`${Math.round(view.zoom*100)}%`;
 }
