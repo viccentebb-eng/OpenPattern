@@ -92,19 +92,22 @@ function buildPeyoteStar(params) {
     const radialY = Math.sin(angle);
     const tangentX = -Math.sin(angle);
     const tangentY = Math.cos(angle);
-    let previousRow = [];
+    let previousTraversal = [];
 
+    // A peyote-star arm grows from a single outer tip toward a wide inner base.
+    // Consecutive row widths alternate odd/even counts naturally, creating the
+    // half-bead interlock seen in real peyote instead of stacked rectangular rows.
     for (let level = 0; level < levels; level += 1) {
       const t = level / Math.max(1, levels - 1);
-      let count = Math.max(1, Math.round(1 + (baseWidth - 1) * (1 - t)));
-      if (count > 1 && count % 2 === 0) count += 1;
-      const radius = innerRadius + t * armLength;
+      const count = Math.max(1, Math.round(1 + (baseWidth - 1) * t));
+      const radius = innerRadius + (1 - t) * armLength;
       const row = [];
 
       for (let j = 0; j < count; j += 1) {
         const offset = (j - (count - 1) / 2) * spacing;
         const index = nodes.length;
-        const border = j === 0 || j === count - 1 || level === levels - 1;
+        const border = j === 0 || j === count - 1 || level === 0;
+        const centerStripe = Math.abs(j - (count - 1) / 2) < 0.55 && level > Math.floor(levels * .45);
         const node = {
           id: `a${arm}-l${level}-b${j}`,
           index,
@@ -116,30 +119,31 @@ function buildPeyoteStar(params) {
           level,
           slot: j,
           sequence: sequence++,
-          defaultColorIndex: border ? 1 : ((level + arm) % 7 === 0 ? 2 : 0)
+          defaultColorIndex: border ? 1 : (centerStripe ? 2 : 0)
         };
         nodes.push(node);
         row.push(node);
       }
 
-      if (previousRow.length) {
-        const direction = level % 2 === 0 ? row : [...row].reverse();
-        const prevEnd = previousRow[previousRow.length - 1];
-        if (direction.length) edges.push({ from: prevEnd.index, to: direction[0].index, kind: 'thread' });
-      }
-
       const traversal = level % 2 === 0 ? row : [...row].reverse();
+      if (previousTraversal.length && traversal.length) {
+        edges.push({
+          from: previousTraversal[previousTraversal.length - 1].index,
+          to: traversal[0].index,
+          kind: 'thread'
+        });
+      }
       for (let i = 1; i < traversal.length; i += 1) {
         edges.push({ from: traversal[i - 1].index, to: traversal[i].index, kind: 'thread' });
       }
-      previousRow = traversal;
+      previousTraversal = traversal;
     }
   }
 
   // Link the innermost row of adjacent arms so the star reads as one object.
   const roots = [];
   for (let arm = 0; arm < arms; arm += 1) {
-    const row = nodes.filter(n => n.arm === arm && n.level === 0);
+    const row = nodes.filter(n => n.arm === arm && n.level === levels - 1);
     const root = row[Math.floor(row.length / 2)];
     if (root) roots.push(root);
   }
