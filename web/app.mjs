@@ -45,7 +45,9 @@ technique.addEventListener('change',()=>{
   beginMutation('Cambiar técnica');
   pattern.techniqueId=technique.value;
   if(isGeometryTechnique(pattern.techniqueId)) ensureGeometryState();
+  if(isStructuredCrochetTechnique(pattern.techniqueId)) ensureCrochetState();
   commitMutation();
+  updateSourcePanelVisibility();
   renderTechniqueControls();
   renderTechniqueLegend();
   render();
@@ -59,7 +61,9 @@ imageInput.addEventListener('change',async()=>{
   sourceName=f.name;
   sourceStatusEl.textContent=`${f.name} · ${sourceBitmap.width}×${sourceBitmap.height}`;
   drawSourcePreview();
-  await regeneratePattern('Importar imagen',true);
+  if(currentTechnique()?.sourceMode==='image-grid'){
+    await regeneratePattern('Importar imagen',true);
+  }
 });
 
 for(const c of [widthInput,colorsInput,pixelModeInput,cleanGridInput,lightThresholdInput,brightnessInput,contrastInput,saturationInput]){
@@ -198,6 +202,7 @@ window.addEventListener('keyup',e=>{if(e.code==='Space'){spaceDown=false;if(gest
 window.addEventListener('beforeunload',savePattern);
 
 async function regeneratePattern(label='Regenerar diseño',resetView=false){
+  if(currentTechnique()?.sourceMode!=='image-grid'){sourceStatusEl.textContent='Esta técnica no depende de una imagen.';return}
   if(!sourceBitmap){sourceStatusEl.textContent='Carga una imagen antes de regenerar.';return}
   clearTimeout(regenerateTimer);sourceStatusEl.textContent='Generando…';
   const width=clamp(Math.round(+widthInput.value||48),8,300);
@@ -221,6 +226,7 @@ async function regeneratePattern(label='Regenerar diseño',resetView=false){
 }
 
 function scheduleRegenerate(){
+  if(currentTechnique()?.sourceMode!=='image-grid')return;
   if(!autoRegenerateInput.checked||!sourceBitmap)return;
   clearTimeout(regenerateTimer);
   regenerateTimer=setTimeout(()=>regeneratePattern('Ajustar conversión'),280);
@@ -240,6 +246,20 @@ function syncConversionLabels(){
     $(`#${id}Value`).value=el.value;
   }
 }
+
+function currentTechnique(){
+  return getTechnique(pattern.techniqueId);
+}
+
+function updateSourcePanelVisibility(){
+  const mode=currentTechnique()?.sourceMode??'manual';
+  if(conversionPanel){
+    conversionPanel.classList.toggle('hidden',mode!=='image-grid');
+    const title=conversionPanel.querySelector('.section-title');
+    if(title)title.textContent='Conversión desde imagen · opcional';
+  }
+}
+
 
 function finishGesture(e){
   if(!gesture||gesture.pointerId!==e.pointerId)return;
