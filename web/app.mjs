@@ -285,6 +285,70 @@ function linePoints(x0,y0,x1,y1){
   return pts;
 }
 
+function isStructuredCrochetTechnique(id){
+  return id==='crochet-round-chart'||id==='amigurumi';
+}
+
+function hydrateCrochetOptions(){
+  const params=pattern.crochet?.kind===pattern.techniqueId?(pattern.crochet.params||{}):{};
+  if(pattern.techniqueId==='crochet-round-chart'){
+    if(Number.isFinite(+params.rounds))renderOptions.radialRounds=+params.rounds;
+    if(Number.isFinite(+params.startCount))renderOptions.radialStartCount=+params.startCount;
+    if(Number.isFinite(+params.growth))renderOptions.radialGrowth=+params.growth;
+    if(typeof params.stitchType==='string')renderOptions.radialStitch=params.stitchType;
+    if(typeof params.direction==='string')renderOptions.radialDirection=params.direction;
+  }else if(pattern.techniqueId==='amigurumi'){
+    if(typeof params.shape==='string')renderOptions.amigurumiShape=params.shape;
+    if(Number.isFinite(+params.startCount))renderOptions.amigurumiStartCount=+params.startCount;
+    if(Number.isFinite(+params.maxStitches))renderOptions.amigurumiMaxStitches=+params.maxStitches;
+    if(Number.isFinite(+params.bodyRounds))renderOptions.amigurumiBodyRounds=+params.bodyRounds;
+  }
+}
+
+function currentCrochetParams(){
+  if(pattern.techniqueId==='crochet-round-chart'){
+    return {
+      rounds:renderOptions.radialRounds,
+      startCount:renderOptions.radialStartCount,
+      growth:renderOptions.radialGrowth,
+      stitchType:renderOptions.radialStitch,
+      direction:renderOptions.radialDirection,
+      startMethod:'magic-ring'
+    };
+  }
+  if(pattern.techniqueId==='amigurumi'){
+    return {
+      shape:renderOptions.amigurumiShape,
+      startCount:renderOptions.amigurumiStartCount,
+      maxStitches:renderOptions.amigurumiMaxStitches,
+      bodyRounds:renderOptions.amigurumiBodyRounds
+    };
+  }
+  return {};
+}
+
+function ensureCrochetState(){
+  if(!isStructuredCrochetTechnique(pattern.techniqueId))return;
+  if(!pattern.crochet||pattern.crochet.kind!==pattern.techniqueId){
+    pattern.crochet={kind:pattern.techniqueId,params:currentCrochetParams()};
+  }else{
+    pattern.crochet.params={...currentCrochetParams(),...(pattern.crochet.params||{})};
+  }
+}
+
+function syncCrochetParams(){
+  ensureCrochetState();
+  if(pattern.crochet)pattern.crochet.params=currentCrochetParams();
+}
+
+function currentCrochetData(){
+  ensureCrochetState();
+  const params=pattern.crochet?.params||currentCrochetParams();
+  return pattern.techniqueId==='amigurumi'
+    ? buildAmigurumi(params)
+    : buildRadialCrochetChart(params);
+}
+
 function hydrateGeometryOptions(){
   const params=pattern.geometry?.kind===pattern.techniqueId?(pattern.geometry.params||{}):{};
   if(pattern.techniqueId==='peyote-star'){
