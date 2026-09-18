@@ -24,13 +24,20 @@ OpenPattern intentionally evaluates existing open-source work before reimplement
 - Relevant parts: even/odd-count flat peyote row staggering, active-column logic, working-row direction, SVG pattern/fabric views, progress tracking.
 - OpenPattern use: the flat peyote layout in `src/geometry/bead-layout.mjs` is an independent JavaScript adaptation of the documented row/column model, with attribution retained here and in source comments.
 
+## CrochetPhoto2Pattern
+
+- Repository: https://github.com/paulkooer/CrochetPhoto2Pattern
+- License: MIT
+- Relevant parts: amigurumi shaping, gauge-aware round generation, validation, ring charts, structure geometry and CrochetPARADE export.
+- OpenPattern use today: conceptual/algorithmic reference for the parametric amigurumi controls. CrochetPARADE remains the canonical parser/graph/render backend.
+
 ## CrochetPARADE
 
 - Repository: https://codeberg.org/crochetparade/CrochetPARADE
 - Mirror inspected: https://github.com/stassev/CrochetPARADE
 - License: GPL-3.0-or-later
 - Relevant parts: crochet normalization, parser, IR, compiler, stitch graph, Pyodide browser bridge, SVG/3D pipeline.
-- OpenPattern use today: architecture research only. No CrochetPARADE source is vendored yet.
+- OpenPattern use today: canonical crochet engine boundary. OpenPattern now emits CrochetPARADE DSL through `src/crochet/crochetparade-adapter.mjs`; GPL source is not vendored yet.
 - Before direct integration: decide OpenPattern's root license and keep CrochetPARADE behind a dedicated adapter/worker boundary.
 
 ## ratpi-studio/svg-pattern-generator
