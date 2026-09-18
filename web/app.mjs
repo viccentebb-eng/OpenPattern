@@ -355,7 +355,15 @@ function renderPalette(){
 
 function renderTechniqueLegend(){
   const counts=Array(pattern.palette.length).fill(0);
-  for(const i of pattern.grid.cells)if(i>=0&&i<counts.length)counts[i]++;
+  if(isGeometryTechnique(pattern.techniqueId)){
+    const layout=currentGeometryLayout();
+    for(const node of layout.nodes){
+      const i=geometryColorIndex(node);
+      if(i>=0&&i<counts.length)counts[i]++;
+    }
+  }else{
+    for(const i of pattern.grid.cells)if(i>=0&&i<counts.length)counts[i]++;
+  }
   techniqueLegendEl.replaceChildren();
   pattern.palette.forEach((c,i)=>{
     const m=techniqueLegendMeta(pattern.techniqueId,i,renderOptions),row=document.createElement('div');
