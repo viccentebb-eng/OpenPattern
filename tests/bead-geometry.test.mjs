@@ -28,10 +28,16 @@ test('rosette creates concentric rings with mixed bead shapes', () => {
   assert.ok(layout.edges.some(e => e.kind === 'radial'));
 });
 
-test('flat peyote maps nodes back to grid colors', () => {
+test('flat peyote maps grid colors while preserving zig-zag thread order', () => {
   const pattern = {
     grid: { width:4, height:2, cells:[0,1,2,3, 4,5,6,7] }
   };
   const layout = buildBeadLayout('peyote-flat', pattern);
-  assert.deepEqual(layout.nodes.map(n => n.defaultColorIndex), [1,3,4,6]);
+
+  // Node order follows the working thread direction, so row 2 is reversed.
+  assert.deepEqual(layout.nodes.map(n => n.defaultColorIndex), [1,3,6,4]);
+
+  // Coordinate mapping still points back to the correct source cells.
+  const bySource = [...layout.nodes].sort((a,b) => a.sourceIndex - b.sourceIndex);
+  assert.deepEqual(bySource.map(n => [n.sourceIndex,n.defaultColorIndex]), [[1,1],[3,3],[4,4],[6,6]]);
 });
