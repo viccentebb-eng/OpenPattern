@@ -25,7 +25,10 @@ export function techniqueLegendMeta(techniqueId, paletteIndex, options={}) {
   switch (techniqueId) {
     case 'cross-stitch':
       return { symbol:CROSS_STITCH_SYMBOLS[paletteIndex % CROSS_STITCH_SYMBOLS.length], unit:'puntadas', catalog:'DMC/Anchor: pendiente' };
-    case 'bead-loom': {
+    case 'bead-loom':
+    case 'peyote-flat':
+    case 'peyote-star':
+    case 'bead-rosette': {
       const profile = getBeadProfile(options.beadProfile);
       return { symbol:beadSymbol(paletteIndex), unit:'cuentas', catalog:profile.label };
     }
