@@ -350,6 +350,7 @@ function hydrateCrochetOptions(){
     if(Number.isFinite(+params.growth))renderOptions.radialGrowth=+params.growth;
     if(typeof params.stitchType==='string')renderOptions.radialStitch=params.stitchType;
     if(typeof params.direction==='string')renderOptions.radialDirection=params.direction;
+    if(typeof pattern.crochet?.chart?.layout==='string')renderOptions.crochetLayout=pattern.crochet.chart.layout;
   }else if(pattern.techniqueId==='amigurumi'){
     if(typeof params.shape==='string')renderOptions.amigurumiShape=params.shape;
     if(Number.isFinite(+params.startCount))renderOptions.amigurumiStartCount=+params.startCount;
@@ -366,7 +367,8 @@ function currentCrochetParams(){
       growth:renderOptions.radialGrowth,
       stitchType:renderOptions.radialStitch,
       direction:renderOptions.radialDirection,
-      startMethod:'magic-ring'
+      startMethod:'magic-ring',
+      layout:renderOptions.crochetLayout
     };
   }
   if(pattern.techniqueId==='amigurumi'){
@@ -387,11 +389,61 @@ function ensureCrochetState(){
   }else{
     pattern.crochet.params={...currentCrochetParams(),...(pattern.crochet.params||{})};
   }
+  if(pattern.techniqueId==='crochet-round-chart'&&!pattern.crochet.chart){
+    pattern.crochet.chart=generateCrochetTemplate({
+      layout:renderOptions.crochetLayout,
+      rounds:renderOptions.radialRounds,
+      startCount:renderOptions.radialStartCount,
+      growth:renderOptions.radialGrowth,
+      stitchType:renderOptions.radialStitch,
+      colorIndex:activeColor
+    });
+  }
 }
 
 function syncCrochetParams(){
   ensureCrochetState();
   if(pattern.crochet)pattern.crochet.params=currentCrochetParams();
+}
+
+function currentCrochetChart(){
+  ensureCrochetState();
+  return pattern.crochet?.chart??createCrochetChart({layout:renderOptions.crochetLayout});
+}
+
+function regenerateCrochetChartTemplate(label='Generar base'){
+  beginMutation(label);
+  ensureCrochetState();
+  pattern.crochet.params=currentCrochetParams();
+  pattern.crochet.chart=generateCrochetTemplate({
+    layout:renderOptions.crochetLayout,
+    rounds:renderOptions.radialRounds,
+    startCount:renderOptions.radialStartCount,
+    growth:renderOptions.radialGrowth,
+    stitchType:renderOptions.radialStitch,
+    colorIndex:activeColor
+  });
+  crochetSelectedId=null;
+  crochetConnectFrom=null;
+  commitMutation();
+  renderTechniqueControls();
+  render();
+}
+
+function applyCrochetText(text){
+  const {chart,issues}=parseRoundText(text,{layout:renderOptions.crochetLayout});
+  if(!chart.nodes.length)return issues.length?issues:['No se generaron puntadas.'];
+  beginMutation('Aplicar patrón escrito');
+  ensureCrochetState();
+  pattern.crochet.chart=chart;
+  pattern.crochet.chart.text=text;
+  pattern.crochet.chart.textMode='manual';
+  crochetSelectedId=null;
+  crochetConnectFrom=null;
+  commitMutation();
+  renderTechniqueControls();
+  render();
+  return issues;
 }
 
 function currentCrochetData(){
