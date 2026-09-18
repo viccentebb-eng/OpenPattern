@@ -28,7 +28,8 @@ export function techniqueLegendMeta(techniqueId, paletteIndex, options={}) {
     case 'bead-loom':
     case 'peyote-flat':
     case 'peyote-star':
-    case 'bead-rosette': {
+    case 'bead-rosette':
+    case 'bead-crochet-rope': {
       const profile = getBeadProfile(options.beadProfile);
       return { symbol:beadSymbol(paletteIndex), unit:'cuentas', catalog:profile.label };
     }
