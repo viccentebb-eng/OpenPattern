@@ -762,7 +762,12 @@ function renderPalette(){
 
 function renderTechniqueLegend(){
   const counts=Array(pattern.palette.length).fill(0);
-  if(isGeometryTechnique(pattern.techniqueId)){
+  if(pattern.techniqueId==='crochet-round-chart'){
+    for(const node of currentCrochetChart().nodes){
+      const i=Number.isInteger(node.colorIndex)?node.colorIndex:0;
+      if(i>=0&&i<counts.length)counts[i]++;
+    }
+  }else if(isGeometryTechnique(pattern.techniqueId)){
     const layout=currentGeometryLayout();
     for(const node of layout.nodes){
       const i=geometryColorIndex(node);
