@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "techniqueId": "tapestry-crochet",
+  "title": "Sample checker",
+  "grid": {
+    "width": 4,
+    "height": 4,
+    "cells": [0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0]
+  },
+  "palette": [
+    {"id":"c0","name":"White","rgb":[255,255,255]},
+    {"id":"c1","name":"Black","rgb":[0,0,0]}
+  ],
+  "metadata": {
+    "createdAt": "2026-09-18T00:00:00.000Z",
+    "updatedAt": "2026-09-18T00:00:00.000Z"
+  }
+}

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OpenPattern Starter</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <strong>OpenPattern</strong>
+      <span>starter</span>
+    </div>
+    <button id="download">Exportar patrón</button>
+  </header>
+
+  <main>
+    <aside>
+      <label>Técnica
+        <select id="technique"></select>
+      </label>
+      <label>Imagen o pixel art
+        <input id="image" type="file" accept="image/*" />
+      </label>
+      <label>Ancho del patrón
+        <input id="width" type="number" min="8" max="300" value="48" />
+      </label>
+      <label>Máximo de colores
+        <input id="colors" type="number" min="2" max="32" value="8" />
+      </label>
+      <button id="mirror">Espejar horizontal</button>
+      <div id="palette" class="palette"></div>
+      <p class="hint">Sube una imagen. El demo la reduce a una cuadrícula y extrae una paleta inicial. Haz clic en una celda para repintarla.</p>
+    </aside>
+
+    <section class="workspace">
+      <canvas id="canvas" width="900" height="700"></canvas>
+      <div id="status">Carga una imagen para empezar.</div>
+    </section>
+  </main>
+
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>
