@@ -292,11 +292,15 @@ function currentGeometryLayout(){
 }
 
 function geometryColorIndex(node){
+  let raw;
   if(pattern.techniqueId==='peyote-flat'&&Number.isInteger(node.sourceIndex)){
-    return pattern.grid.cells[node.sourceIndex]??node.defaultColorIndex??0;
+    raw=pattern.grid.cells[node.sourceIndex]??node.defaultColorIndex??0;
+  }else{
+    const value=pattern.geometry?.colors?.[node.index];
+    raw=Number.isInteger(value)?value:(node.defaultColorIndex??0);
   }
-  const value=pattern.geometry?.colors?.[node.index];
-  return Number.isInteger(value)?value:(node.defaultColorIndex??0);
+  const length=Math.max(1,pattern.palette.length);
+  return ((raw%length)+length)%length;
 }
 
 function setGeometryNodeColor(node,value){
@@ -587,7 +591,7 @@ function savePattern(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(patte
 function loadPattern(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return null;const p=JSON.parse(raw);return validatePattern(p).length?null:p}catch{return null}}
 function loadViewOptions(){try{return{...defaults(),...JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')}}catch{return defaults()}}
 function saveViewOptions(){localStorage.setItem(VIEW_KEY,JSON.stringify(renderOptions))}
-function defaults(){return{showGuides:true,guideSpacing:10,showCoordinates:true,trackMode:false,trackIndex:0,beadProfile:'delica11',beadRender:'realistic',beadHoles:true,beadSymbols:false,crossStyle:'color-symbol',knitStyle:'color-v',c2cDiagonal:true}}
+function defaults(){return{showGuides:true,guideSpacing:10,showCoordinates:true,trackMode:false,trackIndex:0,beadProfile:'delica11',beadRender:'realistic',beadHoles:true,beadSymbols:false,crossStyle:'color-symbol',knitStyle:'color-v',c2cDiagonal:true,geometryShowPath:true,geometryShowNumbers:false,starArms:5,starLevels:13,starBaseWidth:9,rosetteRings:5,rosetteBaseCount:6}}
 function clone(v){return JSON.parse(JSON.stringify(v))}
 function hexToRgb(hex){const v=hex.replace('#','');return[parseInt(v.slice(0,2),16),parseInt(v.slice(2,4),16),parseInt(v.slice(4,6),16)]}
 function rgbToHex([r,g,b]){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')}
