@@ -92,7 +92,7 @@ function buildPeyoteStar(params) {
 
     for (let level = 0; level < levels; level += 1) {
       const t = level / Math.max(1, levels - 1);
-      let count = Math.max(1, Math.round(baseWidth * (1 - t) + 1));
+      let count = Math.max(1, Math.round(1 + (baseWidth - 1) * (1 - t)));
       if (count > 1 && count % 2 === 0) count += 1;
       const radius = innerRadius + t * armLength;
       const row = [];
@@ -135,7 +135,8 @@ function buildPeyoteStar(params) {
   // Link the innermost row of adjacent arms so the star reads as one object.
   const roots = [];
   for (let arm = 0; arm < arms; arm += 1) {
-    const root = nodes.find(n => n.arm === arm && n.level === 0 && n.slot === Math.floor(baseWidth / 2));
+    const row = nodes.filter(n => n.arm === arm && n.level === 0);
+    const root = row[Math.floor(row.length / 2)];
     if (root) roots.push(root);
   }
   for (let i = 0; i < roots.length; i += 1) {
