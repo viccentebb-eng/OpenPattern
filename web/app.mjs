@@ -469,7 +469,22 @@ function getLayout(){
   return{cell,offsetX:(canvas.width-drawWidth)/2+view.panX,offsetY:(canvas.height-drawHeight)/2+view.panY,drawWidth,drawHeight};
 }
 
+function geometryRenderOptions(){
+  ensureGeometryState();
+  return {...renderOptions,geometryColors:pattern.geometry?.colors||[]};
+}
+
+function renderGeometryCanvas(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#f7f7f5';ctx.fillRect(0,0,canvas.width,canvas.height);
+  const layout=currentGeometryLayout();
+  lastGeometryProjection=drawBeadLayout(ctx,layout,pattern.palette,geometryRenderOptions(),view);
+  updateStatus();renderPatternViewer();updateProjectMeta();
+}
+
 function render(){
+  if(isGeometryTechnique(pattern.techniqueId)){renderGeometryCanvas();return}
+  lastGeometryProjection=[];
   ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#f7f7f5';ctx.fillRect(0,0,canvas.width,canvas.height);
   const L=getLayout(),sx=clamp(Math.floor(-L.offsetX/L.cell),0,pattern.grid.width),sy=clamp(Math.floor(-L.offsetY/L.cell),0,pattern.grid.height),ex=clamp(Math.ceil((canvas.width-L.offsetX)/L.cell),0,pattern.grid.width),ey=clamp(Math.ceil((canvas.height-L.offsetY)/L.cell),0,pattern.grid.height);
   ctx.fillStyle='#fff';ctx.fillRect(L.offsetX,L.offsetY,L.drawWidth,L.drawHeight);
@@ -520,6 +535,12 @@ function drawTracker(L){
 function renderPatternViewer(){
   viewerCtx.clearRect(0,0,patternViewer.width,patternViewer.height);
   viewerCtx.fillStyle='#fff';viewerCtx.fillRect(0,0,patternViewer.width,patternViewer.height);
+
+  if(isGeometryTechnique(pattern.techniqueId)){
+    drawBeadLayout(viewerCtx,currentGeometryLayout(),pattern.palette,{...geometryRenderOptions(),geometryShowNumbers:false},{zoom:1,panX:0,panY:0});
+    return;
+  }
+
   const pad=8,cell=Math.min((patternViewer.width-pad*2)/pattern.grid.width,(patternViewer.height-pad*2)/pattern.grid.height);
   const ox=(patternViewer.width-cell*pattern.grid.width)/2,oy=(patternViewer.height-cell*pattern.grid.height)/2;
   for(let y=0;y<pattern.grid.height;y++)for(let x=0;x<pattern.grid.width;x++){
@@ -532,6 +553,13 @@ function renderPatternViewer(){
 }
 
 function updateProjectMeta(){
+  if(isGeometryTechnique(pattern.techniqueId)){
+    const layout=currentGeometryLayout();
+    const profile=BEAD_PROFILES[renderOptions.beadProfile]??BEAD_PROFILES.delica11;
+    const label=pattern.techniqueId==='peyote-star'?'Peyote star':pattern.techniqueId==='bead-rosette'?'Roseta / mandala':'Peyote flat';
+    projectMetaEl.textContent=`${layout.nodes.length.toLocaleString()} cuentas · ${label} · ${profile.label}`;
+    return;
+  }
   const s=estimateTechniqueSize(pattern.techniqueId,pattern.grid,renderOptions);
   projectMetaEl.textContent=s
     ? `${pattern.grid.width}×${pattern.grid.height} cuentas · aprox. ${s.widthMm.toFixed(1)} × ${s.heightMm.toFixed(1)} mm · ${s.label}`
@@ -549,7 +577,10 @@ function pointerToCanvas(e){
 function updateStatus(){
   const names={pencil:'Pincel',eraser:'Borrador',fill:'Relleno',pan:'Mover'};
   const size=activeTool==='pencil'?` · ${brushSize}×${brushSize}`:activeTool==='eraser'?` · ${eraserSize}×${eraserSize}`:'';
-  statusEl.textContent=`${pattern.grid.width}×${pattern.grid.height} · ${pattern.palette.length} colores · ${names[activeTool]}${size} · ${Math.round(view.zoom*100)}%${statusEl.dataset.pointer?' · '+statusEl.dataset.pointer:''}`;
+  const base=isGeometryTechnique(pattern.techniqueId)
+    ? `${currentGeometryLayout().nodes.length} cuentas`
+    : `${pattern.grid.width}×${pattern.grid.height}`;
+  statusEl.textContent=`${base} · ${pattern.palette.length} colores · ${names[activeTool]}${size} · ${Math.round(view.zoom*100)}%${statusEl.dataset.pointer?' · '+statusEl.dataset.pointer:''}`;
   $('#resetView').textContent=`${Math.round(view.zoom*100)}%`;
 }
 function savePattern(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(pattern));saveStatusEl.textContent='Guardado local'}catch{saveStatusEl.textContent='No se pudo guardar'}}
