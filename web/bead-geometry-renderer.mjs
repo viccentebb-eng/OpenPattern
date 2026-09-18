@@ -45,7 +45,8 @@ export function drawBeadLayout(ctx, layout, palette, options = {}, view = { zoom
 
   const profile = getBeadProfile(options.beadProfile || 'delica11');
   for (const node of projected) {
-    const colorIndex = resolveColorIndex(node, options);
+    const rawColorIndex = resolveColorIndex(node, options);
+    const colorIndex = palette.length ? ((rawColorIndex % palette.length) + palette.length) % palette.length : 0;
     const rgb = palette[colorIndex]?.rgb ?? [210, 210, 210];
     drawGeometryBead(ctx, node, rgb, profile, options);
   }
