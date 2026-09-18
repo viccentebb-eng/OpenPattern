@@ -28,3 +28,9 @@ canvas[data-tool=eraser]{cursor:cell}canvas[data-tool=fill]{cursor:copy}canvas[d
 .tracker{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px}.tracker span{text-align:center;font-size:11px;color:#555}
 @media(max-width:1180px){main{grid-template-columns:270px minmax(0,1fr) 260px}}
 @media(max-width:900px){body{overflow:auto}main{height:auto;grid-template-columns:1fr}.left-panel,.right-panel{border:0;border-bottom:1px solid #d2d2cf}.workspace{height:70vh}header{position:sticky;top:0;z-index:5}.top-actions button:not(.primary){display:none}}
+
+.round-report{display:grid;gap:5px;max-height:220px;overflow:auto;padding:8px;border:1px solid #dededb;border-radius:8px;background:#fff}
+.round-report-row{display:grid;grid-template-columns:38px minmax(0,1fr);gap:8px;align-items:start;font-size:11px;line-height:1.35}
+.round-report-row strong{font-variant-numeric:tabular-nums}.round-report-row span{color:#555}
+.crochetparade-panel{display:grid;gap:7px;padding:9px;border:1px solid #d7d7d3;border-radius:8px;background:#f3f3f0}
+.dsl-preview{margin:0;max-height:160px;overflow:auto;padding:8px;border-radius:6px;background:#1f1f1f;color:#f2f2f2;font:11px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap}
