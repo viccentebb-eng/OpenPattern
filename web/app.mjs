@@ -4,6 +4,8 @@ import { pixelsToPatternData } from '../src/image/image-to-grid.mjs';
 import { applyImageAdjustments } from '../src/image/preprocess.mjs';
 import { listTechniques } from '../src/techniques/registry.mjs';
 import { BEAD_PROFILES, drawTechniqueCell, estimateTechniqueSize, techniqueLegendMeta } from './technique-renderers.mjs';
+import { buildBeadLayout, isGeometryTechnique } from '../src/geometry/bead-layout.mjs';
+import { drawBeadLayout, hitTestBeadLayout, projectBeadLayout } from './bead-geometry-renderer.mjs';
 
 const STORAGE_KEY='openpattern.current.v1';
 const VIEW_KEY='openpattern.view.v1';
@@ -26,6 +28,7 @@ let sourceBitmap=null,sourceName='',activeColor=Math.min(1,pattern.palette.lengt
 let spaceDown=false,gesture=null,lastPaintedCell=null,pendingMutation=null,undoStack=[],redoStack=[],regenerateTimer=null;
 let view={zoom:1,panX:0,panY:0};
 let renderOptions=loadViewOptions();
+let lastGeometryProjection=[];
 
 for(const item of listTechniques()){const o=document.createElement('option');o.value=item.id;o.textContent=item.name;technique.append(o)}
 technique.value=pattern.techniqueId;
