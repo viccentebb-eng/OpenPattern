@@ -2,11 +2,13 @@ import { createPattern, touchPattern, validatePattern } from '../src/core/patter
 import { fillRect, floodFill, mirrorHorizontal } from '../src/core/grid.mjs';
 import { pixelsToPatternData } from '../src/image/image-to-grid.mjs';
 import { applyImageAdjustments } from '../src/image/preprocess.mjs';
-import { listTechniques } from '../src/techniques/registry.mjs';
+import { getTechnique, listTechniques } from '../src/techniques/registry.mjs';
 import { BEAD_PROFILES, drawTechniqueCell, estimateTechniqueSize, techniqueLegendMeta } from './technique-renderers.mjs';
 import { buildBeadLayout, isGeometryTechnique } from '../src/geometry/bead-layout.mjs';
 import { beadRunsForRepeat, detectLinearRepeat } from '../src/geometry/bead-rope.mjs';
 import { drawBeadLayout, hitTestBeadLayout, projectBeadLayout } from './bead-geometry-renderer.mjs';
+import { buildAmigurumi, buildRadialCrochetChart, CROCHET_STITCHES, validateRoundSequence } from '../src/crochet/round-engine.mjs';
+import { drawCrochetTechnique } from './crochet-renderer.mjs';
 
 const STORAGE_KEY='openpattern.current.v1';
 const VIEW_KEY='openpattern.view.v1';
@@ -23,6 +25,7 @@ const paletteEl=$('#palette'),paletteColorInput=$('#paletteColor'),techniqueLege
 const statusEl=$('#status'),sourceStatusEl=$('#sourceStatus'),saveStatusEl=$('#saveStatus'),projectMetaEl=$('#projectMeta');
 const undoButton=$('#undo'),redoButton=$('#redo'),historyEl=$('#history'),historyMetaEl=$('#historyMeta');
 const brushSizeInput=$('#brushSize'),eraserSizeInput=$('#eraserSize'),brushSizeValue=$('#brushSizeValue'),eraserSizeValue=$('#eraserSizeValue');
+const conversionPanel=document.querySelector('.conversion');
 
 let pattern=loadPattern()??createPattern({techniqueId:'tapestry-crochet',width:32,height:24});
 let sourceBitmap=null,sourceName='',activeColor=Math.min(1,pattern.palette.length-1),activeTool='pencil',brushSize=1,eraserSize=1;
