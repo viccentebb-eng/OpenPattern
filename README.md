@@ -9,6 +9,12 @@ OpenPattern ya incluye:
 - Canvas editor con pincel, borrador, fill, zoom/pan y undo/redo.
 - Conversion Studio con regeneración, brillo, contraste, saturación y limpieza de rejilla clara.
 - Pattern Viewer, guías, coordenadas y seguimiento por fila.
+- Crochet Studio visual con layouts radial, granny/cuadrado y libre.
+- Biblioteca inicial de símbolos de crochet con edición directa.
+- Inserción, selección, drag, conexión, duplicado, rotación, escala, vuelta y color por puntada.
+- Patrón escrito ↔ chart para sintaxis común en inglés/español.
+- Plantillas de círculo, granny square y flor.
+- Exportación SVG de charts crochet.
 - Renderers específicos para Tapestry, C2C, Cross Stitch, Knitting Colorwork y Bead Loom.
 - Bead renderer plano/realista con perfiles físicos aproximados.
 - Geometry Engine experimental para:
