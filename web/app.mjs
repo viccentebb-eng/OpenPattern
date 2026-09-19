@@ -231,8 +231,18 @@ canvas.addEventListener('pointerdown',e=>{
     crochetConnectFrom=null;
     updateCrochetStudioUI();
     if(hit){
+      const p=pointerToCanvas(e);
       beginMutation('Mover puntada');
-      gesture={type:'crochet-drag',pointerId:e.pointerId,nodeId:hit.id};
+      gesture={
+        type:'crochet-drag',
+        pointerId:e.pointerId,
+        nodeId:hit.id,
+        startCanvasX:p.x,
+        startCanvasY:p.y,
+        startNodeX:hit.x,
+        startNodeY:hit.y,
+        scale:Math.max(1e-6,hit.screenScale||1)
+      };
       crochetDrag={nodeId:hit.id};
       canvas.setPointerCapture(e.pointerId);
     }
@@ -292,7 +302,11 @@ canvas.addEventListener('pointermove',e=>{
   }
   if(gesture.type==='crochet-drag'){
     const chart=currentCrochetChart();
-    const raw=eventToCrochetModel(e);
+    const p=pointerToCanvas(e);
+    const raw={
+      x:gesture.startNodeX+(p.x-gesture.startCanvasX)/gesture.scale,
+      y:gesture.startNodeY+(p.y-gesture.startCanvasY)/gesture.scale
+    };
     const snapped=nearestGuidePoint(chart,raw.x,raw.y,{segments:Math.max(6,renderOptions.crochetGuideSpokes)});
     moveCrochetNode(chart,gesture.nodeId,snapped.x,snapped.y);
     const node=chart.nodes.find(n=>n.id===gesture.nodeId);
