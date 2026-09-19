@@ -141,6 +141,34 @@ Pattern Core, Grid Engine, schema v1, Technique Registry y pruebas.
 
 ## Fase 4 — Crochet Engine
 
+### Crochet Studio visual — en progreso
+Entregado:
+- chart editor independiente de imagen;
+- layouts radial, granny/cuadrado y libre;
+- biblioteca inicial de 16 símbolos;
+- insertar, seleccionar, arrastrar, borrar, conectar, duplicar y rotar;
+- escala, vuelta y color por puntada;
+- auto-connect opcional;
+- guías y snap;
+- patrón escrito ↔ chart para sintaxis simple por vueltas;
+- plantillas circulares;
+- plantilla granny básica;
+- plantilla flor de 8 pétalos;
+- Pattern Viewer para charts editables;
+- puente CrochetPARADE conservado detrás del adapter.
+
+Siguiente:
+- parser CrochetPARADE real en Worker/Pyodide;
+- selección múltiple y grupos;
+- shells/clusters parametrizables;
+- conexiones a puntadas destino;
+- aumentos/disminuciones con semántica real;
+- repeticiones y sectores;
+- export SVG/PDF específico;
+- granny y mandalas avanzados;
+- doilies/lace;
+- pattern checker sobre stitch graph.
+
 ### Color/grid crochet
 - tapestry crochet;
 - graphgan;
