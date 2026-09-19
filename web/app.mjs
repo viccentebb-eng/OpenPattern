@@ -185,6 +185,7 @@ canvas.addEventListener('pointerdown',e=>{
       const raw=eventToCrochetModel(e);
       const snapped=nearestGuidePoint(chart,raw.x,raw.y,{segments:Math.max(6,renderOptions.crochetGuideSpokes)});
       beginMutation('Insertar puntada');
+      const previousId=crochetSelectedId;
       const node=addCrochetNode(chart,{
         type:crochetStitch,
         x:snapped.x,
@@ -193,6 +194,9 @@ canvas.addEventListener('pointerdown',e=>{
         colorIndex:activeColor,
         rotation:chart.layout==='radial'?Math.atan2(snapped.y,snapped.x)+Math.PI/2:0
       });
+      if(renderOptions.crochetAutoConnect!==false&&previousId&&previousId!==node.id){
+        addCrochetEdge(chart,previousId,node.id,'thread');
+      }
       crochetSelectedId=node.id;
       commitMutation();renderTechniqueControls();updateCrochetStudioUI();render();return;
     }
@@ -314,6 +318,12 @@ window.addEventListener('keydown',e=>{
   if(mod&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
   if(mod&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return}
   if(typing)return;
+  if(pattern.techniqueId==='crochet-round-chart'&&(e.key==='Delete'||e.key==='Backspace')){
+    e.preventDefault();deleteSelectedCrochet();return;
+  }
+  if(pattern.techniqueId==='crochet-round-chart'&&e.key.toLowerCase()==='i'){setCrochetTool('place');return}
+  if(pattern.techniqueId==='crochet-round-chart'&&e.key.toLowerCase()==='v'){setCrochetTool('select');return}
+  if(pattern.techniqueId==='crochet-round-chart'&&e.key.toLowerCase()==='c'){setCrochetTool('connect');return}
   if(e.code==='Space'){e.preventDefault();spaceDown=true;canvas.classList.add('panning');return}
   const s={b:'pencil',e:'eraser',g:'fill',h:'pan'}[e.key.toLowerCase()];
   if(s)setTool(s);
@@ -396,7 +406,7 @@ function updateSourcePanelVisibility(){
       'geometry':'La forma la define el motor de la técnica. La imagen no modifica la geometría.',
       'parametric':'El patrón se construye con parámetros propios de la técnica, no a partir de píxeles.',
       'sequence':'La construcción depende de vueltas, filas, aumentos y disminuciones.',
-      'manual':'Edición manual con herramientas específicas.'
+      'manual':pattern.techniqueId==='crochet-round-chart'?'Editor visual + patrón escrito sincronizado. Inserta, mueve, conecta, rota y cambia puntadas directamente.':'Edición manual con herramientas específicas.'
     };
     techniqueSourceHelpEl.textContent=help[mode]??'';
   }
@@ -803,6 +813,9 @@ function renderTechniqueControls(){
     addCrochetChartCheck('Ajustar a guías','snap');
     addCrochetOptionCheck('Mostrar guías','crochetShowGuides');
     addCrochetOptionCheck('Mostrar conexiones','crochetShowConnections');
+    addCrochetOptionCheck('Conectar automáticamente al insertar','crochetAutoConnect');
+    addTechniqueNumberControl('Radios de guía','crochetGuideSpokes',4,36,'view');
+    addTechniqueNumberControl('Tamaño de símbolos','crochetSymbolSize',12,48,'view');
 
     const actions=document.createElement('div');actions.className='crochet-text-actions';
     const generate=document.createElement('button');generate.className='primary';generate.textContent='Generar base';
@@ -818,6 +831,7 @@ function renderTechniqueControls(){
 
     note('Dibuja directamente con Crochet Studio. Los parámetros de arriba sólo afectan la próxima base generada; tu edición manual no se reemplaza hasta pulsar Generar base.');
     renderCrochetChartSummary(chart);
+    renderCrochetSelectionEditor(chart);
     renderCrochetTextEditor(chart);
     renderCrochetParadePanel(currentCrochetData());
   }else if(pattern.techniqueId==='amigurumi'){
@@ -948,6 +962,54 @@ function renderCrochetChartSummary(chart){
     strong.textContent=String(value);span.textContent=label;cell.append(strong,span);box.append(cell);
   }
   techniqueOptionsEl.append(box);
+}
+
+function renderCrochetSelectionEditor(chart){
+  const node=chart.nodes.find(n=>n.id===crochetSelectedId);
+  if(!node)return;
+
+  const title=document.createElement('div');title.className='section-title sub';title.textContent='Puntada seleccionada';
+  const grid=document.createElement('div');grid.className='crochet-editor-grid';
+
+  const stitchLabel=document.createElement('label'),stitchSelect=document.createElement('select');
+  stitchLabel.append(document.createTextNode('Tipo'),stitchSelect);
+  for(const symbol of Object.values(CROCHET_SYMBOLS)){
+    const o=document.createElement('option');o.value=symbol.id;o.textContent=symbol.label;stitchSelect.append(o);
+  }
+  stitchSelect.value=node.type;
+
+  const roundLabel=document.createElement('label'),roundInput=document.createElement('input');
+  roundInput.type='number';roundInput.min='0';roundInput.max='99';roundInput.value=Number.isInteger(node.round)?String(node.round):'';
+  roundLabel.append(document.createTextNode('Vuelta'),roundInput);
+
+  const rotLabel=document.createElement('label'),rotInput=document.createElement('input');
+  rotInput.type='number';rotInput.min='-360';rotInput.max='360';rotInput.step='5';rotInput.value=String(Math.round((node.rotation??0)*180/Math.PI));
+  rotLabel.append(document.createTextNode('Rotación °'),rotInput);
+
+  const scaleLabel=document.createElement('label'),scaleInput=document.createElement('input');
+  scaleInput.type='number';scaleInput.min='0.25';scaleInput.max='4';scaleInput.step='0.1';scaleInput.value=String(node.scale??1);
+  scaleLabel.append(document.createTextNode('Escala'),scaleInput);
+
+  const colorLabel=document.createElement('label'),colorSelect=document.createElement('select');
+  colorLabel.append(document.createTextNode('Color'),colorSelect);
+  pattern.palette.forEach((color,index)=>{
+    const o=document.createElement('option');o.value=String(index);o.textContent=`${index+1}. ${color.name}`;colorSelect.append(o);
+  });
+  colorSelect.value=String(node.colorIndex??0);
+
+  const apply=(label,patch)=>{
+    beginMutation(label);
+    updateCrochetNode(currentCrochetChart(),node.id,patch);
+    commitMutation();renderTechniqueLegend();updateCrochetStudioUI();render();
+  };
+  stitchSelect.addEventListener('change',()=>apply('Cambiar puntada',{type:stitchSelect.value}));
+  roundInput.addEventListener('change',()=>apply('Cambiar vuelta',{round:roundInput.value===''?null:Math.max(0,Math.round(+roundInput.value))}));
+  rotInput.addEventListener('change',()=>apply('Rotar puntada',{rotation:(+rotInput.value||0)*Math.PI/180}));
+  scaleInput.addEventListener('change',()=>apply('Escalar puntada',{scale:+scaleInput.value||1}));
+  colorSelect.addEventListener('change',()=>apply('Cambiar color de puntada',{colorIndex:+colorSelect.value}));
+
+  grid.append(stitchLabel,roundLabel,rotLabel,scaleLabel,colorLabel);
+  techniqueOptionsEl.append(title,grid);
 }
 
 function renderCrochetTextEditor(chart){
@@ -1135,7 +1197,7 @@ function renderGeometryCanvas(){
 function renderCrochetCanvas(){
   lastGeometryProjection=[];
   if(pattern.techniqueId==='crochet-round-chart'){
-    lastCrochetProjection=drawCrochetChart(ctx,currentCrochetChart(),{...renderOptions,palette:pattern.palette},view,{selectedId:crochetSelectedId,connectFrom:crochetConnectFrom});
+    lastCrochetProjection=drawCrochetChart(ctx,currentCrochetChart(),{...renderOptions,palette:pattern.palette,symbolSize:renderOptions.crochetSymbolSize},view,{selectedId:crochetSelectedId,connectFrom:crochetConnectFrom});
   }else{
     lastCrochetProjection=[];
     drawCrochetTechnique(ctx,pattern.techniqueId,currentCrochetData(),renderOptions,view);
@@ -1199,7 +1261,7 @@ function renderPatternViewer(){
   viewerCtx.fillStyle='#fff';viewerCtx.fillRect(0,0,patternViewer.width,patternViewer.height);
 
   if(pattern.techniqueId==='crochet-round-chart'){
-    drawCrochetChart(viewerCtx,currentCrochetChart(),{...renderOptions,palette:pattern.palette},{zoom:1,panX:0,panY:0},{});
+    drawCrochetChart(viewerCtx,currentCrochetChart(),{...renderOptions,palette:pattern.palette,symbolSize:Math.min(16,renderOptions.crochetSymbolSize)},{zoom:1,panX:0,panY:0},{});
     return;
   }
   if(pattern.techniqueId==='amigurumi'){
@@ -1273,7 +1335,7 @@ function savePattern(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(patte
 function loadPattern(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return null;const p=JSON.parse(raw);return validatePattern(p).length?null:p}catch{return null}}
 function loadViewOptions(){try{return{...defaults(),...JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')}}catch{return defaults()}}
 function saveViewOptions(){localStorage.setItem(VIEW_KEY,JSON.stringify(renderOptions))}
-function defaults(){return{showGuides:true,guideSpacing:10,showCoordinates:true,trackMode:false,trackIndex:0,beadProfile:'delica11',beadRender:'realistic',beadHoles:true,beadSymbols:false,crossStyle:'color-symbol',knitStyle:'color-v',c2cDiagonal:true,geometryShowPath:true,geometryShowNumbers:false,starArms:5,starLevels:13,starBaseWidth:9,rosetteRings:5,rosetteBaseCount:6,ropeView:'draft',ropeRotation:0,radialRounds:6,radialStartCount:6,radialGrowth:6,radialStitch:'sc',radialDirection:'cw',radialRotateSymbols:true,crochetLayout:'radial',crochetShowGuides:true,crochetShowConnections:true,crochetGuideSpokes:8,amigurumiShape:'sphere',amigurumiStartCount:6,amigurumiMaxStitches:36,amigurumiBodyRounds:8}}
+function defaults(){return{showGuides:true,guideSpacing:10,showCoordinates:true,trackMode:false,trackIndex:0,beadProfile:'delica11',beadRender:'realistic',beadHoles:true,beadSymbols:false,crossStyle:'color-symbol',knitStyle:'color-v',c2cDiagonal:true,geometryShowPath:true,geometryShowNumbers:false,starArms:5,starLevels:13,starBaseWidth:9,rosetteRings:5,rosetteBaseCount:6,ropeView:'draft',ropeRotation:0,radialRounds:6,radialStartCount:6,radialGrowth:6,radialStitch:'sc',radialDirection:'cw',radialRotateSymbols:true,crochetLayout:'radial',crochetShowGuides:true,crochetShowConnections:true,crochetAutoConnect:true,crochetGuideSpokes:8,crochetSymbolSize:24,amigurumiShape:'sphere',amigurumiStartCount:6,amigurumiMaxStitches:36,amigurumiBodyRounds:8}}
 function clone(v){return JSON.parse(JSON.stringify(v))}
 function hexToRgb(hex){const v=hex.replace('#','');return[parseInt(v.slice(0,2),16),parseInt(v.slice(2,4),16),parseInt(v.slice(4,6),16)]}
 function rgbToHex([r,g,b]){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')}
