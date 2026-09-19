@@ -31,7 +31,7 @@ const brushSizeInput=$('#brushSize'),eraserSizeInput=$('#eraserSize'),brushSizeV
 const conversionPanel=$('#imageConversionPanel');
 const techniqueNameEl=$('#techniqueName'),techniqueSourceModeEl=$('#techniqueSourceMode'),techniqueSourceHelpEl=$('#techniqueSourceHelp');
 const rightPanel=document.querySelector('.right-panel');
-const crochetStudioPanel=$('#crochetStudioPanel'),crochetSymbolPalette=$('#crochetSymbolPalette'),crochetSelectionInfo=$('#crochetSelectionInfo');
+const crochetStudioPanel=$('#crochetStudioPanel'),crochetSymbolPalette=$('#crochetSymbolPalette'),crochetSelectionInfo=$('#crochetSelectionInfo'),gridToolsPanel=$('#gridToolsPanel');
 
 let pattern=loadPattern()??createPattern({techniqueId:'tapestry-crochet',width:32,height:24});
 let sourceBitmap=null,sourceName='',activeColor=Math.min(1,pattern.palette.length-1),activeTool='pencil',brushSize=1,eraserSize=1;
@@ -387,6 +387,8 @@ function updateSourcePanelVisibility(){
 
   if(conversionPanel) conversionPanel.classList.toggle('hidden',mode!=='image-grid');
   if(crochetStudioPanel) crochetStudioPanel.classList.toggle('hidden',pattern.techniqueId!=='crochet-round-chart');
+  if(gridToolsPanel) gridToolsPanel.classList.toggle('hidden',isStructuredCrochetTechnique(pattern.techniqueId));
+  $('#mirror')?.classList.toggle('hidden',isStructuredCrochetTechnique(pattern.techniqueId));
 
   if(techniqueNameEl) techniqueNameEl.textContent=def?.name??pattern.techniqueId;
   if(techniqueSourceModeEl){
