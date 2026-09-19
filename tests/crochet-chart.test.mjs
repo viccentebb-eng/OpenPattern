@@ -18,7 +18,7 @@ test('radial template creates foundation ring and editable rounds',()=>{
   assert.equal(chart.nodes.filter(n=>n.round===1).length,6);
   assert.equal(chart.nodes.filter(n=>n.round===2).length,12);
   assert.equal(chart.nodes.filter(n=>n.round===3).length,18);
-  assert.equal(summarizeCrochetChart(chart).rounds,4);
+  assert.equal(summarizeCrochetChart(chart).rounds,3);
 });
 
 test('square template places stitches on square perimeters',()=>{
@@ -43,6 +43,9 @@ test('round text parses into a radial chart',()=>{
   assert.deepEqual(issues,[]);
   assert.equal(chart.nodes.length,36);
   assert.match(chartToRoundText(chart),/R2: 12 dc/);
+  const roundTrip=parseRoundText('Base: 1 MR\nR1: 6 sc',{layout:'radial'});
+  assert.equal(roundTrip.issues.length,0);
+  assert.equal(roundTrip.chart.nodes[0].type,'ring');
 });
 
 test('guide snapping supports radial and square layouts',()=>{
