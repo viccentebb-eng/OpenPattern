@@ -74,3 +74,15 @@ test('flower template creates a center ring and shell petals',()=>{
   assert.equal(chart.nodes.filter(n=>n.type==='shell').length,8);
   assert.equal(summarizeCrochetChart(chart).rounds,2);
 });
+
+
+test('crochet text parser understands common repeated shorthand and Spanish aliases',()=>{
+  const repeated=parseRoundText('R1: (sc, inc) x6',{layout:'radial'});
+  assert.equal(repeated.issues.length,0);
+  assert.equal(repeated.chart.nodes.filter(n=>n.round===1).length,12);
+
+  const spanish=parseRoundText('R1: 6 pb\nR2: 12 pa',{layout:'radial'});
+  assert.equal(spanish.issues.length,0);
+  assert.equal(spanish.chart.nodes.filter(n=>n.type==='sc').length,6);
+  assert.equal(spanish.chart.nodes.filter(n=>n.type==='dc').length,12);
+});
