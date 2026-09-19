@@ -179,10 +179,11 @@ export function parseRoundText(text,{layout='radial'}={}) {
   for(const raw of String(text??'').split(/\r?\n/)){
     const line=raw.trim();
     if(!line)continue;
+    const base=line.match(/^(?:Base|Foundation)\s*:\s*(.+)$/i);
     const m=line.match(/^(?:R|V|Round|Vuelta)\s*(\d+)\s*:\s*(.+)$/i);
-    if(!m){issues.push(`No entendí: "${line}"`);continue}
-    const round=Number(m[1]);
-    const body=m[2];
+    if(!m&&!base){issues.push(`No entendí: "${line}"`);continue}
+    const round=base?0:Number(m[1]);
+    const body=base?base[1]:m[2];
     const tokens=[];
     const rx=/(\d+)\s*(mr|ring|ch|sl\s*st|slst|sc|hdc|dc|tr|dtr|inc|dec|shell|v(?:\s*st)?|cluster|puff|popcorn|picot)\b/ig;
     let match;
@@ -205,7 +206,9 @@ export function parseRoundText(text,{layout='radial'}={}) {
     for(const token of r.tokens){
       for(let i=0;i<token.count;i++){
         const t=(cursor+.5)/Math.max(1,total);
-        const p=layout==='square'?pointOnSquare(t,r.round):pointOnCircle(t,r.round);
+        const p=r.round===0
+          ? {x:0,y:0,rotation:0}
+          : (layout==='square'?pointOnSquare(t,r.round):pointOnCircle(t,r.round));
         addCrochetNode(chart,{type:token.type,x:p.x,y:p.y,rotation:p.rotation,round:r.round});
         cursor++;
       }
@@ -220,7 +223,7 @@ export function parseRoundText(text,{layout='radial'}={}) {
 
 export function summarizeCrochetChart(chart) {
   const byType=countByType(chart.nodes);
-  const rounds=[...new Set(chart.nodes.map(n=>n.round).filter(Number.isInteger))].sort((a,b)=>a-b);
+  const rounds=[...new Set(chart.nodes.map(n=>n.round).filter(r=>Number.isInteger(r)&&r>0))].sort((a,b)=>a-b);
   return {
     stitches:chart.nodes.length,
     connections:chart.edges.length,
