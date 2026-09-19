@@ -17,3 +17,21 @@ test('project section remains independent from Conversion Studio',()=>{
   assert.match(html,/class="section conversion" id="imageConversionPanel"/);
   assert.match(html,/id="techniqueSourceMode"/);
 });
+
+
+test('Crochet Studio has independent drawing controls',()=>{
+  assert.match(html,/id="crochetStudioPanel"/);
+  assert.match(html,/id="crochetSymbolPalette"/);
+  assert.match(html,/data-crochet-tool="select"/);
+  assert.match(html,/data-crochet-tool="place"/);
+  assert.match(html,/data-crochet-tool="connect"/);
+  assert.match(html,/data-crochet-tool="delete"/);
+});
+
+test('generic grid tools can be hidden without hiding project controls',()=>{
+  const gridTools=html.indexOf('id="gridToolsPanel"');
+  const project=html.indexOf('class="section project-section"');
+  assert.ok(gridTools>=0);
+  assert.ok(project>=0);
+  assert.notEqual(gridTools,project);
+});
