@@ -269,16 +269,9 @@ export function parseRoundText(text,{layout='radial'}={}) {
     if(!m&&!base){issues.push(`No entendí: "${line}"`);continue}
     const round=base?0:Number(m[1]);
     const body=base?base[1]:m[2];
-    const tokens=[];
-    const rx=/(\d+)\s*(mr|ring|ch|sl\s*st|slst|sc|hdc|dc|tr|dtr|inc|dec|shell|v(?:\s*st)?|cluster|puff|popcorn|picot)\b/ig;
-    let match;
-    while((match=rx.exec(body))){
-      const count=Number(match[1]);
-      const type=normalizeType(match[2]);
-      if(type)tokens.push({type,count});
-    }
+    const tokens=parseBodyTokens(body);
     if(!tokens.length){
-      issues.push(`R${round}: no encontré cantidades + puntadas compatibles`);
+      issues.push(`${round===0?'Base':'R'+round}: no encontré una secuencia compatible`);
       continue;
     }
     rounds.push({round,tokens});
@@ -346,9 +339,76 @@ function countByType(nodes){
   return out;
 }
 
+function parseBodyTokens(body){
+  const tokens=[];
+  let rest=String(body??'');
+
+  // Common crochet shorthand: (sc, inc) x6 / (2 dc, ch) ×4
+  const groupRx=/\(([^)]+)\)\s*(?:x|×|\*)\s*(\d+)/ig;
+  rest=rest.replace(groupRx,(_,inside,repsRaw)=>{
+    const reps=Math.max(1,Number(repsRaw)||1);
+    const parts=inside.split(/[,;]+/).map(v=>v.trim()).filter(Boolean);
+    const parsed=parts.map(parseTerm).filter(Boolean);
+    for(let r=0;r<reps;r++)for(const item of parsed)tokens.push({...item});
+    return ' ';
+  });
+
+  // Plain quantity + stitch tokens.
+  const tokenRx=/(\d+)\s*([a-záéíóúñ\.]+(?:\s+[a-záéíóúñ\.]+)?)/ig;
+  let match;
+  while((match=tokenRx.exec(rest))){
+    const type=normalizeType(match[2]);
+    if(type)tokens.push({type,count:Number(match[1])});
+  }
+
+  // Foundation shorthand without an explicit count: MR / ring.
+  if(!tokens.length){
+    const bare=normalizeType(rest.trim());
+    if(bare)tokens.push({type:bare,count:1});
+  }
+
+  return compactTokenRuns(tokens);
+}
+
+function parseTerm(term){
+  const m=String(term).trim().match(/^(?:(\d+)\s*)?(.+)$/);
+  if(!m)return null;
+  const type=normalizeType(m[2]);
+  if(!type)return null;
+  return {type,count:Math.max(1,Number(m[1]||1))};
+}
+
+function compactTokenRuns(tokens){
+  const out=[];
+  for(const token of tokens){
+    if(!token||!token.type||!token.count)continue;
+    const last=out[out.length-1];
+    if(last&&last.type===token.type)last.count+=token.count;
+    else out.push({type:token.type,count:token.count});
+  }
+  return out;
+}
+
 function normalizeType(value){
-  const v=value.toLowerCase().replace(/\s+/g,'');
-  const map={mr:'ring',ring:'ring',ch:'ch',slst:'slst',sc:'sc',hdc:'hdc',dc:'dc',tr:'tr',dtr:'dtr',inc:'inc',dec:'dec',shell:'shell',v:'vst',vst:'vst',cluster:'cluster',puff:'puff',popcorn:'popcorn',picot:'picot'};
+  const v=String(value??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\.\s_-]+/g,'');
+  const map={
+    mr:'ring',ring:'ring',anillo:'ring',anillomagico:'ring',
+    ch:'ch',cad:'ch',cadena:'ch',corr:'ch',correntinha:'ch',
+    slst:'slst',slipstitch:'slst',pe:'slst',pdeslizado:'slst',
+    sc:'sc',pb:'sc',puntobajo:'sc',
+    hdc:'hdc',mp:'hdc',mediopunto:'hdc',
+    dc:'dc',pa:'dc',puntoalto:'dc',
+    tr:'tr',patriple:'tr',puntoaltotriple:'tr',
+    dtr:'dtr',
+    inc:'inc',aum:'inc',aumento:'inc',
+    dec:'dec',dism:'dec',disminucion:'dec',
+    shell:'shell',abanico:'shell',
+    v:'vst',vst:'vst',vstitch:'vst',
+    cluster:'cluster',cl:'cluster',
+    puff:'puff',
+    popcorn:'popcorn',pop:'popcorn',
+    picot:'picot'
+  };
   return map[v]??null;
 }
 
