@@ -12,6 +12,7 @@ import { drawCrochetTechnique } from './crochet-renderer.mjs';
 import { toCrochetParadeDsl } from '../src/crochet/crochetparade-adapter.mjs';
 import { CROCHET_SYMBOLS, addCrochetEdge, addCrochetNode, chartToRoundText, createCrochetChart, generateCrochetTemplate, generateFlowerTemplate, generateGrannySquareTemplate, moveCrochetNode, nearestGuidePoint, parseRoundText, removeCrochetNode, summarizeCrochetChart, updateCrochetNode } from '../src/crochet/chart-model.mjs';
 import { drawCrochetChart, hitTestCrochetChart, projectCrochetChart, screenToCrochetModel } from './crochet-chart-renderer.mjs';
+import { crochetChartToSvg } from '../src/crochet/chart-svg.mjs';
 
 const STORAGE_KEY='openpattern.current.v1';
 const VIEW_KEY='openpattern.view.v1';
@@ -868,6 +869,22 @@ function renderTechniqueControls(){
     });
     presets.append(granny,flower);techniqueOptionsEl.append(presets);
 
+    const exportRow=document.createElement('div');exportRow.className='crochet-text-actions';
+    const exportSvg=document.createElement('button');exportSvg.textContent='Exportar SVG';
+    exportSvg.addEventListener('click',()=>{
+      const svg=crochetChartToSvg(currentCrochetChart(),{
+        palette:pattern.palette,
+        showGuides:renderOptions.crochetShowGuides!==false,
+        showConnections:renderOptions.crochetShowConnections!==false
+      });
+      downloadTextFile(svg,`${safeName(pattern.title||'crochet-chart')}.svg`,'image/svg+xml');
+    });
+    const copyText=document.createElement('button');copyText.textContent='Copiar instrucciones';
+    copyText.addEventListener('click',async()=>{
+      try{await navigator.clipboard.writeText(chartToRoundText(currentCrochetChart()));copyText.textContent='Copiado';setTimeout(()=>copyText.textContent='Copiar instrucciones',1200)}catch{copyText.textContent='No se pudo copiar'}
+    });
+    exportRow.append(exportSvg,copyText);techniqueOptionsEl.append(exportRow);
+
     note('Dibuja directamente con Crochet Studio. Los parámetros de arriba sólo afectan la próxima base generada; tu edición manual no se reemplaza hasta pulsar Generar base.');
     renderCrochetChartSummary(chart);
     renderCrochetSelectionEditor(chart);
@@ -1380,6 +1397,12 @@ function hexToRgb(hex){const v=hex.replace('#','');return[parseInt(v.slice(0,2),
 function rgbToHex([r,g,b]){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')}
 function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
 function safeName(v){return(v||'pattern').toLowerCase().replace(/[^a-z0-9-_]+/gi,'-').replace(/^-+|-+$/g,'')||'pattern'}
+function downloadTextFile(content,filename,type='text/plain'){
+  const blob=new Blob([content],{type});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=filename;a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
+}
 
 canvas.dataset.tool=activeTool;
 brushSizeValue.value='1×1';eraserSizeValue.value='1×1';
