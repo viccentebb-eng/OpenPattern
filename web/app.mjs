@@ -10,7 +10,7 @@ import { drawBeadLayout, hitTestBeadLayout, projectBeadLayout } from './bead-geo
 import { buildAmigurumi, buildRadialCrochetChart, CROCHET_STITCHES, validateRoundSequence } from '../src/crochet/round-engine.mjs';
 import { drawCrochetTechnique } from './crochet-renderer.mjs';
 import { toCrochetParadeDsl } from '../src/crochet/crochetparade-adapter.mjs';
-import { CROCHET_SYMBOLS, addCrochetEdge, addCrochetNode, chartToRoundText, createCrochetChart, generateCrochetTemplate, moveCrochetNode, nearestGuidePoint, parseRoundText, removeCrochetNode, summarizeCrochetChart, updateCrochetNode } from '../src/crochet/chart-model.mjs';
+import { CROCHET_SYMBOLS, addCrochetEdge, addCrochetNode, chartToRoundText, createCrochetChart, generateCrochetTemplate, generateFlowerTemplate, generateGrannySquareTemplate, moveCrochetNode, nearestGuidePoint, parseRoundText, removeCrochetNode, summarizeCrochetChart, updateCrochetNode } from '../src/crochet/chart-model.mjs';
 import { drawCrochetChart, hitTestCrochetChart, projectCrochetChart, screenToCrochetModel } from './crochet-chart-renderer.mjs';
 
 const STORAGE_KEY='openpattern.current.v1';
@@ -828,6 +828,29 @@ function renderTechniqueControls(){
       commitMutation();renderTechniqueControls();updateCrochetStudioUI();render();
     });
     actions.append(generate,blank);techniqueOptionsEl.append(actions);
+
+    const presets=document.createElement('div');presets.className='crochet-text-actions';
+    const granny=document.createElement('button');granny.textContent='Granny básico';
+    granny.addEventListener('click',()=>{
+      beginMutation('Generar granny square');
+      renderOptions.crochetLayout='square';
+      ensureCrochetState();
+      pattern.crochet.chart=generateGrannySquareTemplate({rounds:Math.min(6,renderOptions.radialRounds),colorIndex:activeColor});
+      pattern.crochet.params=currentCrochetParams();
+      crochetSelectedId=null;crochetConnectFrom=null;
+      commitMutation();saveViewOptions();renderTechniqueControls();updateCrochetStudioUI();render();
+    });
+    const flower=document.createElement('button');flower.textContent='Flor 8 pétalos';
+    flower.addEventListener('click',()=>{
+      beginMutation('Generar flor crochet');
+      renderOptions.crochetLayout='radial';
+      ensureCrochetState();
+      pattern.crochet.chart=generateFlowerTemplate({petals:8,colorIndex:activeColor});
+      pattern.crochet.params=currentCrochetParams();
+      crochetSelectedId=null;crochetConnectFrom=null;
+      commitMutation();saveViewOptions();renderTechniqueControls();updateCrochetStudioUI();render();
+    });
+    presets.append(granny,flower);techniqueOptionsEl.append(presets);
 
     note('Dibuja directamente con Crochet Studio. Los parámetros de arriba sólo afectan la próxima base generada; tu edición manual no se reemplaza hasta pulsar Generar base.');
     renderCrochetChartSummary(chart);
