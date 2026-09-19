@@ -6,6 +6,8 @@ import {
   chartToRoundText,
   createCrochetChart,
   generateCrochetTemplate,
+  generateFlowerTemplate,
+  generateGrannySquareTemplate,
   nearestGuidePoint,
   parseRoundText,
   removeCrochetNode,
@@ -55,4 +57,20 @@ test('guide snapping supports radial and square layouts',()=>{
   const square=createCrochetChart({layout:'square'});
   const sp=nearestGuidePoint(square,1.8,.4);
   assert.equal(Math.abs(sp.x),2);
+});
+
+
+test('granny template creates dc clusters and chain spaces',()=>{
+  const chart=generateGrannySquareTemplate({rounds:3,colorIndex:0});
+  assert.equal(chart.layout,'square');
+  assert.ok(chart.nodes.some(n=>n.type==='dc'));
+  assert.ok(chart.nodes.some(n=>n.type==='ch'));
+  assert.equal(summarizeCrochetChart(chart).rounds,3);
+});
+
+test('flower template creates a center ring and shell petals',()=>{
+  const chart=generateFlowerTemplate({petals:8,colorIndex:0});
+  assert.equal(chart.nodes[0].type,'ring');
+  assert.equal(chart.nodes.filter(n=>n.type==='shell').length,8);
+  assert.equal(summarizeCrochetChart(chart).rounds,2);
 });
