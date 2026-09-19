@@ -77,6 +77,91 @@ export function generateCrochetTemplate(params={}) {
   return chart;
 }
 
+export function generateGrannySquareTemplate({rounds=3,colorIndex=0}={}){
+  const chart=createCrochetChart({layout:'square'});
+  const totalRounds=clampInt(rounds,1,8,3);
+  const foundation=addCrochetNode(chart,{type:'ring',x:0,y:0,round:0,colorIndex});
+  let previous=foundation.id;
+
+  for(let round=1;round<=totalRounds;round++){
+    const clustersPerSide=round;
+    const clusterCount=clustersPerSide*4;
+    const sequence=[];
+
+    for(let cluster=0;cluster<clusterCount;cluster++){
+      const t=(cluster+.5)/clusterCount;
+      const center=pointOnSquare(t,round);
+      const tangent=squareTangent(t);
+      for(let j=-1;j<=1;j++){
+        const node=addCrochetNode(chart,{
+          type:'dc',
+          x:center.x+tangent.x*j*.16,
+          y:center.y+tangent.y*j*.16,
+          rotation:center.rotation,
+          round,
+          colorIndex
+        });
+        sequence.push(node);
+      }
+
+      const corner=((cluster+1)%clustersPerSide===0);
+      const chains=corner?2:1;
+      const gapT=(cluster+1)/clusterCount;
+      const gap=pointOnSquare(gapT,round);
+      for(let j=0;j<chains;j++){
+        const n=addCrochetNode(chart,{
+          type:'ch',
+          x:gap.x+tangent.x*(j-(chains-1)/2)*.14,
+          y:gap.y+tangent.y*(j-(chains-1)/2)*.14,
+          rotation:gap.rotation,
+          round,
+          colorIndex
+        });
+        sequence.push(n);
+      }
+    }
+
+    for(let i=1;i<sequence.length;i++)addCrochetEdge(chart,sequence[i-1].id,sequence[i].id,'thread');
+    if(sequence.length){
+      addCrochetEdge(chart,sequence.at(-1).id,sequence[0].id,'round');
+      addCrochetEdge(chart,previous,sequence[0].id,'join');
+      previous=sequence[0].id;
+    }
+  }
+  chart.text=chartToRoundText(chart);
+  return chart;
+}
+
+export function generateFlowerTemplate({petals=8,colorIndex=0}={}){
+  const chart=createCrochetChart({layout:'radial'});
+  const count=clampInt(petals,4,16,8);
+  const foundation=addCrochetNode(chart,{type:'ring',x:0,y:0,round:0,colorIndex});
+  const inner=[];
+
+  for(let i=0;i<count;i++){
+    const p=pointOnCircle(i/count,1);
+    inner.push(addCrochetNode(chart,{type:'sc',x:p.x,y:p.y,rotation:p.rotation,round:1,colorIndex}));
+  }
+  for(let i=0;i<inner.length;i++)addCrochetEdge(chart,inner[i].id,inner[(i+1)%inner.length].id,'round');
+  if(inner[0])addCrochetEdge(chart,foundation.id,inner[0].id,'join');
+
+  const outer=[];
+  for(let i=0;i<count;i++){
+    const angle=-Math.PI/2+i/count*Math.PI*2;
+    const before=addCrochetNode(chart,{type:'ch',x:Math.cos(angle-.16)*1.55,y:Math.sin(angle-.16)*1.55,rotation:angle,round:2,colorIndex});
+    const shell=addCrochetNode(chart,{type:'shell',x:Math.cos(angle)*2,y:Math.sin(angle)*2,rotation:angle+Math.PI/2,round:2,colorIndex});
+    const after=addCrochetNode(chart,{type:'ch',x:Math.cos(angle+.16)*1.55,y:Math.sin(angle+.16)*1.55,rotation:angle,round:2,colorIndex});
+    outer.push(before,shell,after);
+  }
+  for(let i=1;i<outer.length;i++)addCrochetEdge(chart,outer[i-1].id,outer[i].id,'thread');
+  if(outer.length){
+    addCrochetEdge(chart,outer.at(-1).id,outer[0].id,'round');
+    addCrochetEdge(chart,inner[0].id,outer[0].id,'join');
+  }
+  chart.text=chartToRoundText(chart);
+  return chart;
+}
+
 export function addCrochetNode(chart,node={}) {
   const id=node.id??`s${chart.nextId++}`;
   const created={
@@ -230,6 +315,14 @@ export function summarizeCrochetChart(chart) {
     rounds:rounds.length,
     byType
   };
+}
+
+function squareTangent(t){
+  const p=((t%1)+1)%1*8;
+  if(p<2)return{x:1,y:0};
+  if(p<4)return{x:0,y:1};
+  if(p<6)return{x:-1,y:0};
+  return{x:0,y:-1};
 }
 
 function pointOnCircle(t,round){
